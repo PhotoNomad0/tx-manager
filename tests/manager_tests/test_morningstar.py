@@ -1,3 +1,5 @@
+# This Python file uses the following encoding: utf-8
+
 from __future__ import absolute_import, unicode_literals, print_function
 import itertools
 import unittest
@@ -31,29 +33,43 @@ class MorningstarTest(unittest.TestCase):
         intervals = [
             P_1_Month,
             P_3_Month,
+            -1,
             P_1_Year,
             P_3_Year,
             P_5_Year,
             P_10_Year
         ]
+        header = str(datetime.date.today()) + ",1 Month,3 Month,6 Month,1 Year,3 Year,5 Year,10 Year,"
         items = [
-                {
-                    "group": "ARCX",
-                    "symbol": "SCHD",
-                    "field": "NAV"
-                 },
-                {
-                    "group": "XNAS",
-                    "symbol": "FLPSX,FCNTX",
-                    "field": "NAV"
-                },
-                {
-                    "group": "ARCX",
-                    "symbol": "VOO,SPYV,ITOT,IJH,VOE,IJR,VBR,IWM,XLK,VIG,VYM,QQQ,SPLV,AGG,SHY",
-                    "field": "NAV"
-                }
+            {
+                "group": "ARCX",
+                "symbol": "SCHD",
+                "field": "NAV"
+             },
+            {
+                "group": "XNAS",
+                "symbol": "FLPSX,FCNTX",
+                "field": "NAV"
+            },
+            {
+                "group": "ARCX",
+                "symbol": "VOO,SPYV,ITOT,IJH,VOE,IJR,VBR,IWM,XLK,VIG,VYM",
+                "field": "NAV"
+            },
+            {
+                "group": "XNAS",
+                "symbol": "QQQ",
+                "field": "NAV"
+            },
+            {
+                "group": "ARCX",
+                "symbol": "SPLV,AGG,SHY",
+                "field": "NAV"
+            }
             ]
         data = []
+        data.append(header)
+        print(header)
         for item in items:
             symbols = item["symbol"].split(',')
             group = item["group"]
@@ -63,11 +79,7 @@ class MorningstarTest(unittest.TestCase):
                 data.append(line)
                 time.sleep(1)
 
-        print("Final")
-        for item in data.sort():
-            print(item)
-
-    print("done")
+        print("\nFinished")
 
 
     def getPerformanceDataForItem(self, group, symbol, dataField, intervals):
@@ -79,8 +91,11 @@ class MorningstarTest(unittest.TestCase):
         if r.status_code == 200:
             line = self.findPerformanceData(dataField, r, symbol, intervals)
             if line == None:
-                line = symbol + ',ERROR,'
-            print(line)
+                line = symbol + ',PARSE ERROR,'
+        else:
+            line = symbol + ',code=' + str(r.status_code) + ','
+
+        print(line)
         return line
 
     def findPerformanceData(self, dataField, r, symbol, intervals):
@@ -96,10 +111,15 @@ class MorningstarTest(unittest.TestCase):
                     descriptor = self.getContents(rowHeader)
 
                     if descriptor == findDescriptor:
-                        line = descriptor + ',' + str(datetime.date.today())  + ',' + symbol + ','
+                        line = symbol + ','
                         dataFields = row.findAll("td")
                         for interval in intervals:
-                            data = self.getContents(dataFields[interval])
+                            data = ""
+                            if interval >= 0:
+                                dataItem = dataFields[interval]
+                                data = self.getContents(dataItem)
+                                if data == u'—':
+                                    data = ""
                             line += data + ','
                         break
         return line
@@ -111,163 +131,6 @@ class MorningstarTest(unittest.TestCase):
             descriptor = string
             break
         return descriptor
-
-    def test_generate_dashboard(self):
-        manager = TxManager()
-        dashboard = manager.generate_dashboard()
-        # the title should be tX-Manager Dashboard
-        self.assertEqual(dashboard['title'], 'tX-Manager Dashboard')
-        soup = BeautifulSoup(dashboard['body'], 'html.parser')
-        # there should be a status table tag
-        statusTable = soup.find('table', id="status")
-
-        moduleName = 'module1'
-        expectedRowCount = 12
-        expectedSuccessCount = 2
-        expectedWarningCount = 2
-        expectedFailureCount = 1
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount)
-
-        moduleName = 'module2'
-        expectedRowCount = 11
-        expectedSuccessCount = 2
-        expectedWarningCount = 0
-        expectedFailureCount = 2
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount)
-
-        moduleName = 'module3'
-        expectedRowCount = 9
-        expectedSuccessCount = 0
-        expectedWarningCount = 0
-        expectedFailureCount = 0
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount)
-
-        moduleName = 'module4'
-        expectedRowCount = 0
-        expectedSuccessCount = 0
-        expectedWarningCount = 0
-        expectedFailureCount = 0
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount)
-
-        moduleName = 'totals'
-        expectedRowCount = 5
-        expectedSuccessCount = 5
-        expectedWarningCount = 2
-        expectedFailureCount = 3
-        expectedUnregistered = 0
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount, expectedUnregistered)
-
-        failureTable = soup.find('table', id="failed")
-        expectedFailureCount = 3
-        self.validateFailureTable(failureTable, expectedFailureCount)
-
-    def test_generate_dashboard_max_two(self):
-        expectedMaxFailures = 2
-        manager = TxManager()
-        dashboard = manager.generate_dashboard(expectedMaxFailures)
-
-        # the title should be tX-Manager Dashboard
-        self.assertEqual(dashboard['title'], 'tX-Manager Dashboard')
-        soup = BeautifulSoup(dashboard['body'], 'html.parser')
-        # there should be a status table tag
-        statusTable = soup.find('table', id="status")
-
-        moduleName = 'module1'
-        expectedRowCount = 12
-        expectedSuccessCount = 2
-        expectedWarningCount = 2
-        expectedFailureCount = 1
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount)
-
-        moduleName = 'module2'
-        expectedRowCount = 11
-        expectedSuccessCount = 2
-        expectedWarningCount = 0
-        expectedFailureCount = 2
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount)
-
-        moduleName = 'module3'
-        expectedRowCount = 9
-        expectedSuccessCount = 0
-        expectedWarningCount = 0
-        expectedFailureCount = 0
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount)
-
-        moduleName = 'totals'
-        expectedRowCount = 5
-        expectedSuccessCount = 5
-        expectedWarningCount = 2
-        expectedFailureCount = 3
-        expectedUnregistered = 0
-        self.validateModule(statusTable, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                            expectedWarningCount, expectedUnregistered)
-
-        failureTable = soup.find('table', id="failed")
-        expectedFailureCount = expectedMaxFailures
-        self.validateFailureTable(failureTable, expectedFailureCount)
-
-    # helper methods #
-
-    def validateFailureTable(self, table, expectedFailureCount):
-        self.assertIsNotNone(table)
-        module = table.findAll('tr', id=lambda x: x and x.startswith('failure-'))
-        rowCount = len(module)
-        self.assertEquals(rowCount, expectedFailureCount)
-
-    def validateModule(self, table, moduleName, expectedRowCount, expectedSuccessCount, expectedFailureCount,
-                       expectedWarningCount, expectedUnregistered = 0):
-        self.assertIsNotNone(table)
-        module = table.findAll('tr', id=lambda x: x and x.startswith(moduleName + '-'))
-        rowCount = len(module)
-        self.assertEquals(rowCount, expectedRowCount)
-        if expectedRowCount > 0:
-            successCount = self.getCountFromRow(table, moduleName + '-job-success')
-            self.assertEquals(successCount, expectedSuccessCount)
-            warningCount = self.getCountFromRow(table, moduleName + '-job-warning')
-            self.assertEquals(warningCount, expectedWarningCount)
-            failureCount = self.getCountFromRow(table, moduleName + '-job-failure')
-            self.assertEquals(failureCount, expectedFailureCount)
-            unregisteredCount = self.getCountFromRow(table, moduleName + '-job-unregistered')
-            self.assertEquals(unregisteredCount, expectedUnregistered)
-            expectedTotalCount = expectedFailureCount + expectedSuccessCount + expectedWarningCount + expectedUnregistered
-            totalCount = self.getCountFromRow(table, moduleName + '-job-total')
-            self.assertEquals(totalCount, expectedTotalCount)
-
-    def getCountFromRow(self, table, rowID):
-        rows = table.findAll('tr', id=lambda x: x == rowID)
-        if len(rows) == 0:
-            return 0
-
-        dataFields = rows[0].findAll("td")
-        strings = dataFields[1].stripped_strings # get data from second column
-        count = -1
-        for string in strings:
-            count = int(string)
-            break
-
-        return count
-
-    def call_args(self, mock_object, num_args, num_kwargs=0):
-        """
-        :param mock_object: mock object that is expected to have been called
-        :param num_args: expected number of (non-keyword) arguments
-        :param num_kwargs: expected number of keyword arguments
-        :return: (args, kwargs) of last invocation of mock_object
-        """
-        mock_object.assert_called()
-        args, kwargs = mock_object.call_args
-        self.assertEqual(len(args), num_args)
-        self.assertEqual(len(kwargs), num_kwargs)
-        return args, kwargs
-
 
 if __name__ == "__main__":
     unittest.main()
