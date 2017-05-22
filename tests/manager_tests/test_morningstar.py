@@ -30,6 +30,12 @@ class MorningstarTest(unittest.TestCase):
         # http://performance.morningstar.com/funds/etf/total-returns.action?t=SHY
         # http://performance.morningstar.com/perform/Performance/cef/trailing-total-returns.action?&t=XNAS:FLPSX&region=usa&culture=en-US&cur=&ops=clear&s=0P00001MK8&ndec=2&ep=true&align=d&annlz=true&comparisonRemove=false&benchmarkSecId=&benchmarktype=
         # http://performance.morningstar.com/perform/Performance/cef/trailing-total-returns.action?&t={0}&region=usa&culture=en-US&cur=&ops=clear&s=0P00001G5L&ndec=2&ep=true&align=d&annlz=true&comparisonRemove=false&benchmarkSecId=&benchmarktype=SCHD
+        # etf quote (<span id="Yield"> <span id="Expenses">:
+        # http://etfs.morningstar.com/etfq/quote-banner?&t=ARCX:SCHD&region=usa&culture=en-US&version=RET&cur=&test=QuoteiFrame
+        # Note: the above query also works for funds?
+        # fund quote (<span vkey="ttmYield">  <span vkey="ExpenseRatio">:
+        # http://quotes.morningstar.com/fundq/c-header?&t=XNAS:FLPSX&region=usa&culture=en-US&version=RET&cur=&test=QuoteiFrame
+
         intervals = [
             P_1_Month,
             P_3_Month,
@@ -39,30 +45,35 @@ class MorningstarTest(unittest.TestCase):
             P_5_Year,
             P_10_Year
         ]
-        header = str(datetime.date.today()) + ",1 Month,3 Month,6 Month,1 Year,3 Year,5 Year,10 Year,"
+        header = str(datetime.date.today()) + ",1 Month,3 Month,6 Month,1 Year,3 Year,5 Year,10 Year,Amount,Expense Ratio,Dividend"
         items = [
             {
                 "group": "ARCX",
+                "type": "ETFS",
                 "symbol": "SCHD",
                 "field": "NAV"
              },
             {
                 "group": "XNAS",
+                "type": "FUND",
                 "symbol": "FLPSX,FCNTX",
                 "field": "NAV"
             },
             {
                 "group": "ARCX",
+                "type": "ETFS",
                 "symbol": "VOO,SPYV,ITOT,IJH,VOE,IJR,VBR,IWM,XLK,VIG,VYM",
                 "field": "NAV"
             },
             {
                 "group": "XNAS",
+                "type": "ETFS",
                 "symbol": "QQQ",
                 "field": "NAV"
             },
             {
                 "group": "ARCX",
+                "type": "ETFS",
                 "symbol": "SPLV,AGG,SHY",
                 "field": "NAV"
             }
@@ -74,29 +85,66 @@ class MorningstarTest(unittest.TestCase):
             symbols = item["symbol"].split(',')
             group = item["group"]
             dataField = item["field"]
+            type = item["type"]
             for symbol in symbols:
-                line = self.getPerformanceDataForItem(group, symbol, dataField, intervals)
+                line = self.getPerformanceDataForItem(group, symbol, dataField, type, intervals)
                 data.append(line)
-                time.sleep(1)
+                time.sleep(0.1)
 
         print("\nFinished")
 
 
-    def getPerformanceDataForItem(self, group, symbol, dataField, intervals):
+    def getPerformanceDataForItem(self, group, symbol, dataField, type, intervals):
         line = None
         key = "{0}:{1}".format(group, symbol)
         baseUrl = "http://performance.morningstar.com/perform/Performance/cef/trailing-total-returns.action?&t={0}&region=usa&culture=en-US&cur=&ops=clear&s=0P00001G5L&ndec=2&ep=true&align=d&annlz=true&comparisonRemove=false&benchmarkSecId=&benchmarktype=" + key
         url = baseUrl.format(key)
-        r = requests.get(url)
-        if r.status_code == 200:
-            line = self.findPerformanceData(dataField, r, symbol, intervals)
+        ttr_response = requests.get(url)
+        if ttr_response.status_code == 200:
+            line = self.findPerformanceData(dataField, ttr_response, symbol, intervals)
             if line == None:
                 line = symbol + ',PARSE ERROR,'
         else:
-            line = symbol + ',code=' + str(r.status_code) + ','
+            line = symbol + ',code=' + str(ttr_response.status_code) + ','
+
+        time.sleep(0.1)
+        line = self.getQuoteDataForItem(group, symbol, line, type)
 
         print(line)
         return line
+
+    def getQuoteDataForItem(self, group, symbol, line, type):
+        key = "{0}:{1}".format(group, symbol)
+        baseUrl = "http://etfs.morningstar.com/etfq/quote-banner?&t={0}&region=usa&culture=en-US&version=RET&cur=&test=QuoteiFrame"
+        url = baseUrl.format(key)
+        quote_response = requests.get(url)
+        if quote_response.status_code == 200:
+            line = self.findQuoteData(line, type, quote_response, symbol)
+        else:
+            line += ',ERROR,ERROR'
+
+        return line
+
+    def findQuoteData(self, line, type, r, symbol):
+        token = "span"
+        key = "id"
+        keyYield = "Yield"
+        keyExpense = "Expenses"
+
+        soup = BeautifulSoup(r.text, 'html.parser')
+
+        yieldData = self.getQuoteItem(key, soup, token, keyYield)
+        expenseData = self.getQuoteItem(key, soup, token, keyExpense)
+
+        line += "" + ',' + expenseData + ',' + yieldData
+        return line
+
+    def getQuoteItem(self, key, soup, token, keyValue):
+        attrs={};
+        attrs[key] = keyValue
+        data = soup.find(token, attrs)
+        value = self.getContents(data)
+        return value
 
     def findPerformanceData(self, dataField, r, symbol, intervals):
         findDescriptor = "{0} ({1})".format(symbol, dataField)
@@ -124,13 +172,16 @@ class MorningstarTest(unittest.TestCase):
                         break
         return line
 
-    def getContents(self, rowHeader):
-        contents = rowHeader.stripped_strings
-        descriptor = None
+    def getContents(self, item):
+        if item == None:
+            return "--"
+
+        contents = item.stripped_strings
+        text = None
         for string in contents:
-            descriptor = string
+            text = string
             break
-        return descriptor
+        return text
 
 if __name__ == "__main__":
     unittest.main()
