@@ -81,6 +81,38 @@ class ManagerTest(unittest.TestCase):
                 'ReadCapacityUnits': 5,
                 'WriteCapacityUnits': 5
             },
+            GlobalSecondaryIndexes=[
+                {
+                    'IndexName': 'status-created_at-index',
+                    'KeySchema': [
+                        {
+                            'AttributeName': 'status',
+                            'KeyType': 'HASH'
+                        },
+                        {
+                            'AttributeName': 'created_at',
+                            'KeyType': 'RANGE'
+                        }
+                    ],
+                    'Projection': {
+                        'ProjectionType': 'INCLUDE',
+                        'NonKeyAttributes': [
+                            'identifier',
+                            'cdn_bucket',
+                            'source',
+                            'output',
+                            'ended_at',
+                            'started_at',
+                            'errors',
+                            'job_id'
+                        ]
+                    },
+                    'ProvisionedThroughput': {
+                        'ReadCapacityUnits': 5,
+                        'WriteCapacityUnits': 5
+                    }
+                },
+            ],
         )
         self.tx_manager.module_db_handler.resource.create_table(
             TableName=ManagerTest.MOCK_MODULE_TABLE_NAME,
@@ -111,11 +143,12 @@ class ManagerTest(unittest.TestCase):
                 'input_format': 'md',
                 'output_format': 'html',
                 'convert_module': 'module1',
-                'errors': []
+                'errors': [],
+                'created_at':	'2017-04-12T17:03:06Z'
             },
             'job2': {
                 'job_id': 'job2',
-                'status': 'requested',
+                'status': 'failed',
                 'resource_type': 'obs',
                 'input_format': 'md',
                 'output_format': 'html',
@@ -135,41 +168,46 @@ class ManagerTest(unittest.TestCase):
                 'output_format': 'html',
                 'callback': ManagerTest.MOCK_CALLBACK_URL,
                 'convert_module': 'module1',
-                'warnings': []
+                'warnings': [],
+                'created_at':	'2017-04-12T17:03:06Z'
             },
             'job4': {
                 'job_id': 'job4',
-                'status': 'requested',
+                'status': 'warnings',
                 'resource_type': 'other',
                 'input_format': 'md',
                 'output_format': 'html',
                 'convert_module': 'module1',
-                'warnings': ['warning' ]
+                'warnings': ['warning' ],
+                'created_at':	'2017-04-12T17:03:06Z'
             },
             'job5': {
                 'job_id': 'job5',
-                'status': 'requested',
+                'status': 'warnings',
                 'resource_type': 'unsupported',
                 'input_format': 'md',
                 'output_format': 'html',
                 'convert_module': 'module1',
-                'warnings': ['warning1', 'warning2' ]
+                'warnings': ['warning1', 'warning2' ],
+                'created_at':	'2017-04-12T17:03:06Z'
             },
             'job7': {
                 'job_id': 'job7',
-                'status': 'requested',
+                'status': 'started',
                 'resource_type': 'obs',
                 'input_format': 'md',
                 'output_format': 'html',
-                'convert_module': 'module2'
+                'convert_module': 'module2',
+                'created_at':	'2017-04-12T17:03:06Z'
             },
             'job8': {
                 'job_id': 'job8',
-                'status': 'requested',
+                'status': 'success',
                 'resource_type': 'obs',
                 'input_format': 'md',
                 'output_format': 'html',
-                'convert_module': 'module2'
+                'convert_module': 'module2',
+                'created_at':	'2017-04-12T17:03:06Z'
             },
             'job9': {
                 'job_id': 'job9',
@@ -177,11 +215,12 @@ class ManagerTest(unittest.TestCase):
                 'resource_type': 'obs',
                 'input_format': 'html',
                 'output_format': 'pdf',
-                'convert_module': 'module4'
+                'convert_module': 'module4',
+                'created_at':	'2017-04-12T17:03:06Z'
             },
             'job10': {
                 'job_id': 'job10',
-                'status': 'requested',
+                'status': 'failed',
                 'resource_type': 'obs',
                 'input_format': 'md',
                 'output_format': 'html',
@@ -195,7 +234,7 @@ class ManagerTest(unittest.TestCase):
             },
             'job11': {
                 'job_id': 'job11',
-                'status': 'requested',
+                'status': 'failed',
                 'resource_type': 'obs',
                 'input_format': 'md',
                 'output_format': 'html',
@@ -539,8 +578,9 @@ class ManagerTest(unittest.TestCase):
         """Test list_jobs and list_endpoint methods."""
         tx_manager = TxManager(**self.tx_manager_env_vars)
         jobs = tx_manager.list_jobs({'gogs_user_token': 'token2'}, True)
+        jobs_data = [job.get_db_data() for job in jobs]
         expected = [TxJob(self.job_items[job_id]).get_db_data() for job_id in self.job_items]
-        self.assertItemsEqual(jobs, expected)
+        self.assertItemsEqual(jobs_data, expected)
 
         self.assertRaises(Exception, tx_manager.list_jobs, {'bad_key': 'token1'})
         self.assertRaises(Exception, tx_manager.list_jobs, {'gogs_user_token': 'bad_token'})
@@ -592,17 +632,17 @@ class ManagerTest(unittest.TestCase):
 
         module_name = 'module1'
         expected_row_count = 12
-        expected_success_count = 2
+        expected_success_count = 0
         expected_warning_count = 2
-        expected_failure_count = 1
+        expected_failure_count = 3
         self.validateModule(status_table, module_name, expected_row_count, expected_success_count, expected_failure_count,
                             expected_warning_count)
 
         module_name = 'module2'
         expected_row_count = 11
-        expected_success_count = 2
+        expected_success_count = 1
         expected_warning_count = 0
-        expected_failure_count = 2
+        expected_failure_count = 3
         self.validateModule(status_table, module_name, expected_row_count, expected_success_count, expected_failure_count,
                             expected_warning_count)
 
@@ -624,9 +664,9 @@ class ManagerTest(unittest.TestCase):
 
         module_name = 'totals'
         expected_row_count = 5
-        expected_success_count = 5
+        expected_success_count = 1
         expected_warning_count = 2
-        expected_failure_count = 3
+        expected_failure_count = 7
         expected_unregistered = 0
         self.validateModule(status_table, module_name, expected_row_count, expected_success_count, expected_failure_count,
                             expected_warning_count, expected_unregistered)
@@ -647,17 +687,17 @@ class ManagerTest(unittest.TestCase):
 
         module_name = 'module1'
         expected_row_count = 12
-        expected_success_count = 2
+        expected_success_count = 0
         expected_warning_count = 2
-        expected_failure_count = 1
+        expected_failure_count = 3
         self.validateModule(status_table, module_name, expected_row_count, expected_success_count, expected_failure_count,
                             expected_warning_count)
 
         module_name = 'module2'
         expected_row_count = 11
-        expected_success_count = 2
+        expected_success_count = 1
         expected_warning_count = 0
-        expected_failure_count = 2
+        expected_failure_count = 3
         self.validateModule(status_table, module_name, expected_row_count, expected_success_count, expected_failure_count,
                             expected_warning_count)
 
@@ -669,11 +709,19 @@ class ManagerTest(unittest.TestCase):
         self.validateModule(status_table, module_name, expected_row_count, expected_success_count, expected_failure_count,
                             expected_warning_count)
 
+        module_name = 'module4'
+        expected_row_count = 0
+        expected_success_count = 0
+        expected_warning_count = 0
+        expected_failure_count = 0
+        self.validateModule(status_table, module_name, expected_row_count, expected_success_count, expected_failure_count,
+                            expected_warning_count)
+
         module_name = 'totals'
         expected_row_count = 5
-        expected_success_count = 5
+        expected_success_count = 1
         expected_warning_count = 2
-        expected_failure_count = 3
+        expected_failure_count = 7
         expected_unregistered = 0
         self.validateModule(status_table, module_name, expected_row_count, expected_success_count, expected_failure_count,
                             expected_warning_count, expected_unregistered)

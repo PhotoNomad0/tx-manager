@@ -175,11 +175,7 @@ class TxManager(object):
             data['user'] = user.username
             del data['gogs_user_token']
         jobs = TxJob(db_handler=self.job_db_handler).query(data)
-        ret = []
-        if jobs and len(jobs):
-            for job in jobs:
-                ret.append(job.get_db_data())
-        return ret
+        return jobs
 
     def list_endpoints(self):
         return {
@@ -463,8 +459,7 @@ class TxManager(object):
                     '<tr id="' + module_name + '"><td class="hdr" colspan="2">' + str(module_name) + '</td></tr>',
                     'html.parser'))
 
-                jobs = self.get_jobs_for_module(registered_jobs, module_name)
-                self.get_jobs_counts(jobs)
+                self.get_jobs_counts_for_module(registered_jobs, module_name)
 
                 # TBD the following code almosts walks the db record replacing next 11 lines
                 # for attr, val in item:
@@ -579,22 +574,23 @@ class TxManager(object):
                 item = job_failures["Items"][i]
                 # index attributes: identifier, cdn_bucked, source, output, created_at, ended_at, started_at, errors, job_id, status
                 #                                                                         x        x      x
-                try :
-                    identifier = item['identifier']
+                try:
+                    identifier = item['identifier']['S']
                     owner_name, repo_name, commit_id = identifier.split('/')
                     source_sub_path = '{0}/{1}'.format(owner_name, repo_name)
-                    cdn_bucket = item['cdn_bucket']
+                    cdn_bucket = item['cdn_bucket']['S']
                     destination_url = 'https://{0}/u/{1}/{2}/{3}/build_log.json'.format(cdn_bucket, owner_name, repo_name, commit_id)
                     repoUrl = gogs_url + "/" + source_sub_path
-                    preconverted_url = item['source']
-                    converted_url = item['output']
+                    preconverted_url = item['source']['S']
+                    converted_url = item['output']['S']
+                    errors_l = [x['S'] for x in item['errors']['L']]
                     failure_table.table.append(BeautifulSoup(
                         '<tr id="failure-' + str(i) + '" class="module-job-id">'
-                        + '<td>' + item['created_at'] + '</td>'
-                        + '<td>' + ','.join(item['errors']) + '</td>'
+                        + '<td>' + item['created_at']['S'] + '</td>'
+                        + '<td>' + ','.join(errors_l) + '</td>'
                         + '<td><a href="' + repoUrl + '">' + source_sub_path + '</a></td>'
                         + '<td><a href="' + preconverted_url + '">' + preconverted_url.rsplit('/', 1)[1] + '</a></td>'
-                        + '<td><a href="' + converted_url + '">' + item['job_id'] + '.zip</a></td>'
+                        + '<td><a href="' + converted_url + '">' + item['job_id']['S'] + '.zip</a></td>'
                         + '<td><a href="' + destination_url + '">Build Log</a></td>'
                         + '</tr>',
                         'html.parser'))
@@ -619,15 +615,16 @@ class TxManager(object):
             ScanIndexForward = False, # descending
             Limit = limit )
 
-    def get_jobs_for_module(self, jobs, moduleName):
-        jobs_in_module = []
+    def get_jobs_counts_for_module(self, jobs, module_name):
+        self.jobs_warnings = 0
+        self.jobs_failures = 0
+        self.jobs_success = 0
+        self.jobs_total = 0
         for job in jobs:
-            if "convert_module" in job:
-                name = job["convert_module"]
-                if name == moduleName:
-                    jobs_in_module.append(job)
-
-        return jobs_in_module
+            name = job.convert_module
+            if name == module_name:
+                self.jobs_total += 1
+                self.update_job_status(job)
 
     def get_jobs_counts(self, jobs):
         self.jobs_total = len(jobs)
@@ -635,24 +632,25 @@ class TxManager(object):
         self.jobs_failures = 0
         self.jobs_success = 0
         for job in jobs:
-            errors = job['errors']
-            if len(errors) > 0:
-                self.jobs_failures+=1
-                continue
+            self.update_job_status(job)
 
-            warnings = job['warnings']
-            if len(warnings) > 0:
-                self.jobs_warnings+=1
-                continue
-
-            self.jobs_success+=1
+    def update_job_status(self, job):
+        status = job.status
+        if status == "failed":
+            self.jobs_failures += 1
+        elif status == 'warnings':
+            self.jobs_warnings += 1
+        elif status != "success":
+            self.jobs_failures += 1
+        else:
+            self.jobs_success += 1
 
     def get_job_failures(self, jobs):
         failed_jobs = []
         for job in jobs:
-            errors = job['errors']
+            errors = job.errors
             if len(errors) > 0:
                 failed_jobs.append(job)
 
-        failed_jobs = sorted(failed_jobs, key=lambda k: k['created_at'], reverse=True)
+        failed_jobs = sorted(failed_jobs, key=lambda k: k.created_at, reverse=True)
         return failed_jobs
