@@ -74,7 +74,13 @@ class MorningstarTest(unittest.TestCase):
             {
                 "group": "ARCX",
                 "type": "ETFS",
-                "symbol": "SPLV,AGG,SHY",
+                "symbol": "SPLV,AGG",
+                "field": "NAV"
+            },
+            {
+                "group": "XNAS",
+                "type": "ETFS",
+                "symbol": "SHY",
                 "field": "NAV"
             }
             ]
