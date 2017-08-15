@@ -9,6 +9,7 @@ import logging
 from convert_logger import ConvertLogger
 from libraries.checkers.checker_handler import get_checker
 from abc import ABCMeta, abstractmethod
+from libraries.manager.manager import TxManager
 
 
 class Converter(object):
@@ -16,7 +17,15 @@ class Converter(object):
 
     EXCLUDED_FILES = ["license.md", "package.json", "project.json", 'readme.md']
 
-    def __init__(self, source, resource, cdn_bucket=None, cdn_file=None, options=None):
+    def __init__(self, source, resource, cdn_bucket=None, cdn_file=None, options=None, prefix=''):
+        """
+        :param string source:
+        :param string resource:
+        :param string cdn_bucket:
+        :param string cdn_file:
+        :param dict options:
+        :param string prefix:
+        """
         self.log = ConvertLogger()
         self.options = {}
         self.source = source
@@ -24,6 +33,7 @@ class Converter(object):
         self.cdn_bucket = cdn_bucket
         self.cdn_file = cdn_file
         self.options = options
+        self.prefix = prefix
         self.logger = logging.getLogger()
 
         if not self.options:
@@ -75,7 +85,7 @@ class Converter(object):
                 checker = get_checker(self.resource)
                 if checker:
                     try:
-                        checker(self.files_dir, self.output_dir, self.log).run()
+                        checker(self.files_dir, self.output_dir, self.log, self.prefix).run()
                     except Exception as e:
                         self.logger.warning('Checker {0}: failed to run checker'.format(checker.__class__.__name__))
                         self.log.warning('Failed to check for issues'.format(self.resource))

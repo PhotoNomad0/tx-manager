@@ -1,12 +1,12 @@
 from __future__ import print_function, unicode_literals
 import os
 from bs4 import BeautifulSoup
-from libraries.checkers.checker import Checker
+from libraries.checkers.markdown_checker import MarkdownChecker
 from libraries.checkers.obs_data import obs_data
 from libraries.general_tools.file_utils import read_file
 
 
-class ObsChecker(Checker):
+class ObsChecker(MarkdownChecker):
 
     def run(self):
         """
@@ -17,6 +17,8 @@ class ObsChecker(Checker):
         self.converted_dir is the directory of converted files
         :return:
         """
+        super(MarkdownChecker, self).run()  # Runs checks on Markdown, using the markdown linter
+
         for chapter in range(1, 51):
             filename = os.path.join(self.converted_dir, str(chapter).zfill(2)+'.html')
 

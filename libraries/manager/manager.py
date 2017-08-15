@@ -228,7 +228,8 @@ class TxManager(object):
 
             payload = {
                 'data': {
-                    'job': job.get_db_data()
+                    'job': job.get_db_data(),
+                    'prefix': self.prefix
                 }
             }
 
