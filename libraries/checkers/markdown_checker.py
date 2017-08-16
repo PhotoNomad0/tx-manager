@@ -1,6 +1,7 @@
+from __future__ import print_function, unicode_literals
+
 import os
 import json
-from __future__ import print_function, unicode_literals
 from libraries.checkers.checker import Checker
 from libraries.aws_tools.lambda_handler import LambdaHandler
 from libraries.general_tools.file_utils import read_file, get_files
