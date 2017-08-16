@@ -84,6 +84,7 @@ class Converter(object):
                 checker = get_checker(self.resource)
                 if checker:
                     try:
+                        self.log.info("######### BEFORE RUN")
                         checker(self.files_dir, self.output_dir, self.log, self.prefix).run()
                     except Exception as e:
                         self.logger.warning('Checker {0}: failed to run checker'.format(checker.__class__.__name__))

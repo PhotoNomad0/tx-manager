@@ -24,4 +24,5 @@ class Checker(object):
 
     @abstractmethod
     def run(self):
+        self.log.info("######### RUUUUUUUUUUUUUUUUUUUUUUUUUN")
         pass
