@@ -149,7 +149,7 @@ def get_files(directory, relative_paths=False, include_directories=False, topdow
         else:
             path = root
         for filename in files:
-            if exclude and filename.lower() not in exclude and \
+            if (exclude and filename.lower() not in exclude) and \
                     (not extensions or os.path.splitext(filename) in extensions):
                 file_list.append(os.path.join(path, filename))
         if include_directories:
