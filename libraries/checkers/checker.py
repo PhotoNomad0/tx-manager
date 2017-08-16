@@ -1,11 +1,12 @@
 from __future__ import print_function, unicode_literals
+import os
 from abc import ABCMeta, abstractmethod
 from libraries.converters.convert_logger import ConvertLogger
-from libraries.manager.manager import TxManager
 
 
 class Checker(object):
     __metaclass__ = ABCMeta
+    EXCLUDED_FILES = ["license.md", "package.json", "project.json", 'readme.md']
 
     def __init__(self, preconvert_dir, converted_dir, log=None, prefix=''):
         """

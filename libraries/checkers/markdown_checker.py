@@ -3,8 +3,7 @@ import json
 from __future__ import print_function, unicode_literals
 from libraries.checkers.checker import Checker
 from libraries.aws_tools.lambda_handler import LambdaHandler
-from glob import glob
-from libraries.general_tools.file_utils import read_file
+from libraries.general_tools.file_utils import read_file, get_files
 
 
 class MarkdownChecker(Checker):
@@ -20,12 +19,15 @@ class MarkdownChecker(Checker):
         """
         lambda_handler = LambdaHandler()
         lint_function = '{0}tx_markdown_linter'.format(self.prefix)
-        for f in sorted(glob(os.path.join(self.preconvert_dir, '*.md'))):
+        for f in sorted(get_files(directory=self.preconvert_dir, extensions=['md'])):
             filename = os.path.basename(f)
             response = lambda_handler.invoke(lint_function, {'options': {'strings': {filename: read_file(f)}}})
             if 'errorMessage' in response:
                 self.log.error(response['errorMessage'])
             elif 'Payload' in response:
-                lint = response['Payload'].read()
-                for line in sorted(lint.split('\n')):
+                lint_data = json.loads(response['Payload'].read())
+                for lint in lint_data[filename]:
+                    line = '{0}:{1}:{2}: {3} (Text: {4})[{5}]'. \
+                        format(filename, lint['lineNumber'], lint['ruleAlias'], lint['ruleDescription'],
+                               lint['errorContext'], lint['ruleName'])
                     self.log.warning(line)

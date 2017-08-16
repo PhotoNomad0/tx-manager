@@ -9,7 +9,6 @@ import logging
 from convert_logger import ConvertLogger
 from libraries.checkers.checker_handler import get_checker
 from abc import ABCMeta, abstractmethod
-from libraries.manager.manager import TxManager
 
 
 class Converter(object):
@@ -133,12 +132,3 @@ class Converter(object):
             cdn_handler.upload_file(self.output_zip_file, self.cdn_file)
         elif self.cdn_file and os.path.isdir(os.path.dirname(self.cdn_file)):
             copy(self.output_zip_file, self.cdn_file)
-
-    def get_files(self):
-        files = []
-        for root, dirs, filenames in os.walk(self.files_dir):
-            for filename in filenames:
-                if filename.lower() not in Converter.EXCLUDED_FILES:
-                    filepath = os.path.join(root, filename)
-                    files.append(filepath)
-        return files
