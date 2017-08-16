@@ -144,13 +144,16 @@ def get_mime_type(path):
 def get_files(directory, relative_paths=False, include_directories=False, topdown=False, extensions=None, exclude=None):
     file_list = []
     for root, dirs, files in os.walk(directory, topdown=topdown):
+        if exclude and (os.path.basename(root) in exclude or os.path.basename(root).lower() in exclude):
+            continue
         if relative_paths:
             path = root[len(directory)+1:]
         else:
             path = root
         for filename in files:
-            if (not exclude or filename.lower() not in exclude) and \
-                    (not extensions or os.path.splitext(filename)[1] in extensions):
+            if (not exclude or filename not in exclude or filename.lower() not in exclude) and \
+                    (not extensions or os.path.splitext(filename)[1] in extensions
+                     or os.path.splitext(filename)[1].lower() in extensions):
                 file_list.append(os.path.join(path, filename))
         if include_directories:
             for dir_name in dirs:
