@@ -35,7 +35,8 @@ class MarkdownChecker(Checker):
                             'no-hard-tabs': False,
                             'whitespace': False,
                             'line-length': False,
-                            'no-inline-html': False
+                            'no-inline-html': False,
+                            'no-duplicate-header': False,
                         }
                 }
              })
