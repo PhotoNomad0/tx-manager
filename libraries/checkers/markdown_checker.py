@@ -45,7 +45,7 @@ class MarkdownChecker(Checker):
             elif 'Payload' in response:
                 lint_data = json.loads(response['Payload'].read())
                 for lint in lint_data[filename]:
-                    line = '{0}:{1}:{2}: {3} [{5}]'. \
+                    line = '{0}:{1}:{2}: {3} [{4}]'. \
                         format(filename, lint['lineNumber'], lint['ruleAlias'], lint['ruleDescription'],
                                lint['ruleName'])
                     self.log.warning(line)
