@@ -21,7 +21,7 @@ class MarkdownChecker(Checker):
         lambda_handler = LambdaHandler()
         lint_function = '{0}tx_markdown_linter'.format(self.prefix)
         self.log.info("######### " + lint_function)
-        files = sorted(get_files(directory=self.preconvert_dir, extensions=['md']))
+        files = sorted(get_files(directory=self.preconvert_dir, extensions=['.md']))
         self.log.info('files: {0}'.format(files))
         for f in files:
             self.log.info("######### "+f)
