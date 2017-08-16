@@ -26,7 +26,21 @@ class MarkdownChecker(Checker):
         for f in files:
             self.log.info("######### "+f)
             filename = os.path.basename(f)
-            response = lambda_handler.invoke(lint_function, {'options': {'strings': {filename: read_file(f)}}})
+            text = read_file(f)
+            response = lambda_handler.invoke(lint_function, {
+                'options': {
+                        'strings': {
+                            filename: text
+                        },
+                        'config': {
+                            'default': True,
+                            'no-hard-tabs': False,
+                            'whitespace': False,
+                            'line-length': False,
+                            'no-inline-html': False
+                        }
+                }
+             })
             self.log.info("######### {}".format(response))
             if 'errorMessage' in response:
                 self.log.error(response['errorMessage'])
