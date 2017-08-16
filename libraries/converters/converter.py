@@ -79,12 +79,11 @@ class Converter(object):
             if self.convert():
                 self.logger.debug("Was able to convert {0}".format(self.resource))
 
-                # Run the corrisponding checker on the preconvert and/or converted files to look for issues
+                # Run the corresponding checker on the preconvert and/or converted files to look for issues
                 self.logger.debug("Checking for issues...")
                 checker = get_checker(self.resource)
                 if checker:
                     try:
-                        self.log.info("######### BEFORE RUN")
                         checker(self.files_dir, self.output_dir, self.log, self.prefix).run()
                     except Exception as e:
                         self.logger.warning('Checker {0}: failed to run checker'.format(checker.__class__.__name__))
