@@ -17,7 +17,7 @@ class ObsChecker(MarkdownChecker):
         self.converted_dir is the directory of converted files
         :return:
         """
-        super(MarkdownChecker, self).run()  # Runs checks on Markdown, using the markdown linter
+        super(ObsChecker, self).run()  # Runs checks on Markdown, using the markdown linter
 
         for chapter in range(1, 51):
             filename = os.path.join(self.converted_dir, str(chapter).zfill(2)+'.html')
