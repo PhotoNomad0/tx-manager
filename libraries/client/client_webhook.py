@@ -141,8 +141,8 @@ class ClientWebhook(object):
             # Send job request to tx-manager
             identifier, job = self.send_job_request_to_tx_manager(commit_id, file_key, rc, repo_name, repo_owner)
 
-            # Send lint request to tx-manager
-            lint_results = self.send_lint_request_to_tx_manager(job, commit_url)
+            # Send lint request to tx-manager - giving the git.door43.org URL
+            lint_results = self.send_lint_request_to_tx_manager(job, commit_url.replace('commit', 'archive') + '.zip')
             if lint_results['success']:
                 job['warnings'] += lint_results['warnings']
 
