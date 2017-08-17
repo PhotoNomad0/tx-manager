@@ -20,7 +20,6 @@ class MarkdownLinter(Linter):
         lambda_handler = LambdaHandler()
         lint_function = '{0}tx_markdown_linter'.format(self.prefix)
         files = sorted(get_files(directory=self.source_dir, extensions=['.md']))
-        self.log.info('files: {0}'.format(files))
         for f in files:
             filename = os.path.basename(f)
             text = read_file(f)

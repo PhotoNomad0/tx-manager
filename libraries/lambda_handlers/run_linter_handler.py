@@ -23,7 +23,7 @@ class RunLinterHandler(Handler):
             'prefix': self.retrieve(event['vars'], 'prefix', 'Environment Vars', required=False, default='')
         }
         source = self.retrieve(data, 'source_url', 'payload')
-        resource = self.retrieve(data, 'resource', 'payload', required=False)
+        resource = self.retrieve(data, 'resource_type', 'payload', required=False)
         file_type = self.retrieve(data, 'file_type', 'payload', required=False)
         job_id = self.retrieve(data, 'job_id', 'payload', required=False)
         return TxManager(**env_vars).run_linter(source, resource, file_type, job_id)
