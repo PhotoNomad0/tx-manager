@@ -192,6 +192,12 @@ class ClientWebhook(object):
             source_url = self.build_multipart_source(file_key, book)
             identifier, job = self.send_job_request_to_tx_manager(commit_id, source_url, rc, repo_name, repo_owner,
                                                                   count=book_count, part=i, book=book)
+
+            # Send lint request to tx-manager
+            lint_results = self.send_lint_request_to_tx_manager(job, source_url)
+            if lint_results['success']:
+                job['warnings'] += lint_results['warnings']
+
             jobs.append(job)
             last_job_id = job['job_id']
 
@@ -402,7 +408,8 @@ class ClientWebhook(object):
         }
         tx_manager_lint_url = self.api_url + '/tx/lint'
         if job['resource_type'] in BIBLE_RESOURCE_TYPES or job['resource_type'] == 'obs':
-            payload['source_url'] = job['source']  # Need to give the massaged source since it maybe was in chunks originally
+            # Need to give the massaged source since it maybe was in chunks originally
+            payload['source_url'] = job['source']
         else:
             payload['source_url'] = repo_url
         return self.add_payload_to_tx_linter(payload, tx_manager_lint_url)

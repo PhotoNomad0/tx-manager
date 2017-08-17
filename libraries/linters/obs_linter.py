@@ -16,5 +16,5 @@ class ObsLinter(MarkdownLinter):
         self.source_dir is the directory of source files (.md)
         :return:
         """
-        super(self, ObsLinter).lint()
+        super(ObsLinter, self).lint()
 
