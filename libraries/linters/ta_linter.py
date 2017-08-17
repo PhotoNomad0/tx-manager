@@ -1,17 +1,16 @@
 from __future__ import print_function, unicode_literals
-from libraries.checkers.markdown_checker import MarkdownChecker
+from libraries.linters.markdown_linter import MarkdownLinter
 
 
-class TwChecker(MarkdownChecker):
+class TaLinter(MarkdownLinter):
 
-    def run(self):
+    def lint(self):
         """
-        Checks for issues with translationWords
+        Checks for issues with translationAcademy
 
         Use self.log.warning("message") to log any issues.
         self.preconvert_dir is the directory of pre-converted files (.md)
         self.converted_dir is the directory of converted files (.html)
         :return:
         """
-        super(TwChecker, self).run()  # Runs checks on Markdown, using the markdown linter
-        pass
+        super(TaLinter, self).lint()  # Runs checks on Markdown, using the markdown linter

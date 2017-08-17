@@ -29,7 +29,6 @@ class ConvertHandler(Handler):
         if 'body-json' in event and isinstance(event['body-json'], dict):
             data.update(event['body-json'])
         job = self.retrieve(data, 'job', 'payload')
-        prefix = self.retrieve(data, 'prefix', 'payload')
         source = self.retrieve(job, 'source', 'job')
         resource = self.retrieve(job, 'resource_type', 'job')
         cdn_bucket = self.retrieve(job, 'cdn_bucket', 'job')
@@ -38,7 +37,7 @@ class ConvertHandler(Handler):
         if 'options' in job:
             options = job['options']
         converter = self.converter_class(source=source, resource=resource, cdn_bucket=cdn_bucket, cdn_file=cdn_file,
-                                         options=options, prefix=prefix)
+                                         options=options)
         results = converter.run()
         converter.close()  # do cleanup after run
         return results

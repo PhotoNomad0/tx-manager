@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 from libraries.general_tools.file_utils import unzip, write_file, add_contents_to_zip, remove_tree
 from libraries.general_tools.url_utils import download_file
-from libraries.resource_container.ResourceContainer import RC
+from libraries.resource_container.ResourceContainer import RC, BIBLE_RESOURCE_TYPES
 from libraries.client.preprocessors import do_preprocess
 from libraries.aws_tools.s3_handler import S3Handler
 from libraries.models.manifest import TxManifest
@@ -140,6 +140,11 @@ class ClientWebhook(object):
         if not preprocessor.isMultipleJobs():
             # Send job request to tx-manager
             identifier, job = self.send_job_request_to_tx_manager(commit_id, file_key, rc, repo_name, repo_owner)
+
+            # Send lint request to tx-manager
+            lint_results = self.send_lint_request_to_tx_manager(job, commit_url)
+            if lint_results['success']:
+                job['warnings'] += lint_results['warnings']
 
             s3_commit_key = 'u/{0}'.format(identifier)
             self.clear_commit_directory_in_cdn(s3_commit_key)
@@ -306,7 +311,7 @@ class ClientWebhook(object):
         return repo_dir
 
     def send_job_request_to_tx_manager(self, commit_id, file_key, rc, repo_name, repo_owner,
-                                       count=0, part=0, book=None):
+                                       count=0, part=0, book=None, warnings=None):
         source_url = self.source_url_base + "/" + file_key
         callback_url = self.api_url + '/client/callback'
         tx_manager_job_url = self.api_url + '/tx/job'
@@ -320,7 +325,8 @@ class ClientWebhook(object):
             "input_format": rc.resource.file_ext,
             "output_format": "html",
             "source": source_url,
-            "callback": callback_url
+            "callback": callback_url,
+            "warning": warnings
         }
         return self.add_payload_to_tx_converter(callback_url, identifier, payload, rc, source_url, tx_manager_job_url)
 
@@ -387,6 +393,30 @@ class ClientWebhook(object):
             else:
                 job = json_data['job']
         return identifier, job
+
+    def send_lint_request_to_tx_manager(self, job, repo_url):
+        payload = {
+            'job_id': job['job_id'],
+            'resource_type': job['resource_type'],
+            'file_type': job['input_format'],
+        }
+        tx_manager_lint_url = self.api_url + '/tx/lint'
+        if job['resource_type'] in BIBLE_RESOURCE_TYPES or job['resource_type'] == 'obs':
+            payload['source_url'] = job['source']  # Need to give the massaged source since it maybe was in chunks originally
+        else:
+            payload['source_url'] = repo_url
+        return self.add_payload_to_tx_linter(payload, tx_manager_lint_url)
+
+    def add_payload_to_tx_linter(self, payload, tx_manager_lint_url):
+        self.logger.debug('Making request to tX-Manager URL {0} with payload:'.format(tx_manager_lint_url))
+        headers = {"content-type": "application/json"}
+        self.logger.debug(payload)
+        response = requests.post(tx_manager_lint_url, json=payload, headers=headers)
+        self.logger.debug('finished.')
+        if response.status_code == requests.codes.ok:
+            return json.loads(response.text)
+        else:
+            return {'success': False}
 
     def download_repo(self, commit_url, repo_dir):
         """

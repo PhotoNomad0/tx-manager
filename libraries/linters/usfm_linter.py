@@ -1,16 +1,15 @@
 from __future__ import print_function, unicode_literals
-from libraries.checkers.checker import Checker
+from libraries.linters.linter import Linter
 
 
-class BibleChecker(Checker):
+class UsfmLinter(Linter):
 
-    def run(self):
+    def lint(self):
         """
         Checks for issues with all Bibles, such as missing books or chapters
 
         Use self.log.warning("message") to log any issues.
-        self.preconvert_dir is the directory of pre-converted files (.usfm)
-        self.converted_dir is the directory of converted files (.html)
+        self.source_dir is the directory of source files (.usfm)
         :return:
         """
         pass

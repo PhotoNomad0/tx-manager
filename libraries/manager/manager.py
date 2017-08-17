@@ -12,6 +12,7 @@ from libraries.door43_tools.page_metrics import PageMetrics
 from libraries.gogs_tools.gogs_handler import GogsHandler
 from libraries.models.job import TxJob
 from libraries.models.module import TxModule
+from libraries.linters.linter_getter import LinterGetter
 
 
 class TxManager(object):
@@ -229,7 +230,6 @@ class TxManager(object):
             payload = {
                 'data': {
                     'job': job.get_db_data(),
-                    'prefix': self.prefix
                 }
             }
 
@@ -705,3 +705,23 @@ class TxManager(object):
         failed_jobs = sorted(failed_jobs, key=lambda k: k.created_at, reverse=True)
         top_failed_jobs = failed_jobs[:max_count]
         return top_failed_jobs
+
+    def run_linter(self, source, resource=None, file_type=None, job_id=None):
+        # Run the corresponding checker on the zip url to look for issues
+        self.logger.debug("Checking for issues...")
+        linter_class = LinterGetter.get_linter_class(resource, file_type)
+        if linter_class:
+            try:
+                result = linter_class(source, resource, file_type, prefix=self.prefix).run()
+                if result['success']:
+                    if job_id:
+                        job = TxJob(job_id, db_handler=self.job_db_handler)
+                        if job.job_id:
+                            job.update({'warnings': job.warnings + result['warnings']})
+                return result
+            except Exception as e:
+                self.logger.warning('Linter {0}: failed to run checker, Exception:{1}'.
+                                    format(linter_class.__class__.__name__, e))
+        else:
+            self.logger.warning("There is no linter for resource {0}".format(resource))
+        return {'success': False, 'warnings': []}
