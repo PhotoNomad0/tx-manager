@@ -9,7 +9,7 @@ class UdbLinter(UsfmLinter):
         Checks for issues with the UDB
 
         Use self.log.warning("message") to log any issues.
-        self.siyrce_dir is the directory of source files (.usfm)
+        self.source_dir is the directory of source files (.usfm)
         This calls lint() on the parent class which is the USFM linter
         :return:
         """
