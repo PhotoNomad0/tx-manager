@@ -51,7 +51,7 @@ class Linter(object):
         """
         Run common handling for all linters,and then calls the lint() function
         """
-        success = False
+        success = True
         try:
             if not self.source_zip_file or not os.path.exists(self.source_zip_file):
                 # No input zip file yet, so we need to download the archive
@@ -62,13 +62,10 @@ class Linter(object):
             remove(self.source_zip_file)
             # convert method called
             self.logger.debug("Linting files...")
-            success = self.lint()
-            if success:
-                self.logger.debug("Was able to lint {0}".format(self.resource))
-            else:
-                self.logger.warning('Resource {0} currently not supported for linting.'.format(self.resource))
+            self.logger.debug(",,,finished.")
         except Exception as e:
             self.logger.error('Linting process ended abnormally: {0}'.format(e.message))
+            success = False
 
         result = {
             'success': success,
