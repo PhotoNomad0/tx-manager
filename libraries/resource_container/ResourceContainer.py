@@ -61,20 +61,24 @@ resource_map = {
 class RC:
     current_version = '0.2'
 
-    def __init__(self, directory, repo_name=None):
+    def __init__(self, directory=None, repo_name=None, manifest=None):
         """
         :param string directory:
+        :param string repo_name:
+        :param dict manifest:
         """
         self.dir = directory
+        self.manifest = manifest
+        self._repo_name = repo_name
         self._resource = None
         self._projects = []
-        self._repo_name = repo_name
 
-        if not isinstance(self.dir, str) and not isinstance(self.dir, unicode):
-            raise Exception('Missing string parameter: dir')
+        if self.dir and not self.manifest:
+            self.get_manifest_from_dir()
 
+    def get_manifest_from_dir(self):
         if not os.path.isdir(self.dir):
-            raise Exception('Directory doesn\'t exist: {0}'.format(self.dir))
+            raise Exception('Directory does not exist: {0}'.format(self.dir))
 
         self.manifest = load_yaml_object(os.path.join(self.dir, 'manifest.yaml'))
         if not self.manifest:

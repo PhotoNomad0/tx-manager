@@ -6,6 +6,7 @@ from libraries.general_tools.url_utils import download_file
 from libraries.general_tools.file_utils import unzip, remove_tree, remove
 import logging
 from lint_logger import LintLogger
+from libraries.resource_container.ResourceContainer import RC
 from abc import ABCMeta, abstractmethod
 
 
@@ -13,16 +14,16 @@ class Linter(object):
     __metaclass__ = ABCMeta
     EXCLUDED_FILES = ["license.md", "package.json", "project.json", 'readme.md']
 
-    def __init__(self, source, resource=None, file_type=None, prefix=''):
+    def __init__(self, source, rc=None, commit_data=None, prefix=''):
         """
         :param string source:
-        :param string resource:
-        :param string file_type:
-        :param string prefix:
+        :param RC rc: Can get the language code, resource id, file_ext, etc. from this
+        :param dict commit_data: Can get the changes, commit_url, etc from this
+        :param string prefix: For calling the node.js Markdown linter Lambda function in different environments
         """
         self.source = source
-        self.resource = resource
-        self.file_type = file_type
+        self.rc = rc
+        self.commit_data = commit_data
         self.prefix = prefix
 
         self.logger = logging.getLogger()

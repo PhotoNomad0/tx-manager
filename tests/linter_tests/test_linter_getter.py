@@ -1,6 +1,6 @@
 from __future__ import absolute_import, unicode_literals, print_function
 import unittest
-from libraries.linters.linter_getter import LinterGetter
+from libraries.linters.linter_handler import LinterGetter
 
 
 class TestLinterGetter(unittest.TestCase):
