@@ -19,14 +19,15 @@ class MarkdownLinter(Linter):
         """
         lambda_handler = LambdaHandler()
         lint_function = '{0}tx_markdown_linter'.format(self.prefix)
-        files = sorted(get_files(directory=self.source_dir, exclude=self.EXCLUDED_FILES, extensions=['.md']))
+        files = sorted(get_files(directory=self.source_dir, relative_paths=True, exclude=self.EXCLUDED_FILES,
+                                 extensions=['.md']))
         for f in files:
-            filename = os.path.basename(f)
-            text = read_file(f)
+            path = os.path.join(self.source_dir, f)
+            text = read_file(path)
             response = lambda_handler.invoke(lint_function, {
                 'options': {
                         'strings': {
-                            filename: text
+                            f: text
                         },
                         'config': {
                             'default': True,
@@ -42,8 +43,8 @@ class MarkdownLinter(Linter):
                 self.log.error(response['errorMessage'])
             elif 'Payload' in response:
                 lint_data = json.loads(response['Payload'].read())
-                for lint in lint_data[filename]:
+                for lint in lint_data[f]:
                     line = '{0}:{1}:{2}: {3} [{4}]'. \
-                        format(filename, lint['lineNumber'], lint['ruleAlias'], lint['ruleDescription'],
+                        format(f, lint['lineNumber'], lint['ruleAlias'], lint['ruleDescription'],
                                lint['ruleName'])
                     self.log.warning(line)
