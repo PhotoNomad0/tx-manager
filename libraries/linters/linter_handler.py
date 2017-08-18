@@ -18,6 +18,7 @@ class LinterHandler:
     def __init__(self, rc, **kwargs):
         """
         :param RC rc:
+        :param dict **kwargs: so we can pass other arguments and not throw an exception
         """
         self.rc = rc
 

@@ -142,6 +142,8 @@ class RC:
         elif self.path:
             path = self.path.rstrip('/')
             return os.path.basename(path)
+        else:
+            return ''  # Use empty string instead of None
 
     @property
     def resource(self):
