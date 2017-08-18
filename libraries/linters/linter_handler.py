@@ -22,21 +22,21 @@ class LinterHandler:
         self.rc = rc
 
     def get_linter_class(self):
-        if self.rc.resource.id == 'obs':
+        if self.rc.resource.identifier == 'obs':
             return ObsLinter
-        elif self.rc.resource.id == 'ta':
+        elif self.rc.resource.identifier == 'ta':
             return TaLinter
-        elif self.rc.resource.id == 'tn':
+        elif self.rc.resource.identifier == 'tn':
             return TnLinter
-        elif self.rc.resource.id == 'tq':
+        elif self.rc.resource.identifier == 'tq':
             return TqLinter
-        elif self.rc.resource.id == 'tw':
+        elif self.rc.resource.identifier == 'tw':
             return TwLinter
-        elif self.rc.resource.id == 'udb':
+        elif self.rc.resource.identifier == 'udb':
             return UdbLinter
-        elif self.rc.resource.id == 'ulb':
+        elif self.rc.resource.identifier == 'ulb':
             return UlbLinter
-        elif self.rc.resource.id in BIBLE_RESOURCE_TYPES or self.rc.resource.file_ext == 'usfm':
+        elif self.rc.resource.identifier in BIBLE_RESOURCE_TYPES or self.rc.resource.file_ext == 'usfm':
             return UsfmLinter
         elif self.rc.resource.file_ext == 'md':
             return MarkdownLinter
