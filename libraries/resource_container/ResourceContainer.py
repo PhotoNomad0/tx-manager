@@ -73,8 +73,11 @@ class RC:
         self._resource = None
         self._projects = []
 
-        if self.dir and not self.manifest:
-            self.get_manifest_from_dir()
+        if not self.manifest:
+            if self.dir:
+                self.get_manifest_from_dir()
+            else:
+                self.manifest = manifest_from_repo_name(self.repo_name)
 
     def get_manifest_from_dir(self):
         if not os.path.isdir(self.dir):
@@ -613,6 +616,9 @@ def manifest_from_repo_name(repo_name):
     manifest = {
         'dublin_core': {},
     }
+
+    if not repo_name:
+        return manifest
 
     parts = re.findall(r'[A-Za-z0-9]+', repo_name)
 
