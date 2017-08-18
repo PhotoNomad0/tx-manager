@@ -36,6 +36,8 @@ class MarkdownLinter(Linter):
                             'line-length': False,
                             'no-inline-html': False,
                             'no-duplicate-header': False,
+                            'single-h1': False,
+                            'no-trailing-punctuation': False
                         }
                 }
              })
