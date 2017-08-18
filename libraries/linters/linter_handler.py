@@ -15,7 +15,7 @@ from libraries.resource_container.ResourceContainer import RC
 
 class LinterHandler:
     
-    def __init__(self, rc):
+    def __init__(self, rc, **kwargs):
         """
         :param RC rc:
         """
