@@ -56,8 +56,8 @@ class Linter(object):
                 # No input zip file yet, so we need to download the archive
                 self.download_archive()
             # unzip the input archive
-            self.logger.debug("Unzipping {0} to {1}".format(self.source_zip_file, self.source_dir))
-            unzip(self.source_zip_file, self.source_dir)
+            self.logger.debug("Unzipping {0} to {1}".format(self.source_zip_file, self.temp_dir))
+            unzip(self.source_zip_file, self.temp_dir)
             remove(self.source_zip_file)
             self.source_dir = os.path.join(self.temp_dir, os.listdir(self.temp_dir)[0])
             # convert method called
