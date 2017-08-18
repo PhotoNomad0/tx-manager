@@ -21,8 +21,6 @@ class RunLinterHandler(Handler):
         args = {
             'prefix': self.retrieve(event['vars'], 'prefix', 'Environment Vars', required=False, default=''),
             'source': self.retrieve(data, 'source_url', 'payload'),
-            'resource': self.retrieve(data, 'resource_type', 'payload', required=False),
-            'file_type': self.retrieve(data, 'file_type', 'payload', required=False),
             'commit_data': self.retrieve(data, 'commit_data', 'payload', required=False),
             'rc': RC(manifest=self.retrieve(data, 'rc', 'payload', required=False)),
         }
