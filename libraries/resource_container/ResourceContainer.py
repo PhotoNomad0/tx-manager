@@ -139,7 +139,7 @@ class RC:
     def repo_name(self):
         if self._repo_name:
             return self._repo_name
-        else:
+        elif self.path:
             path = self.path.rstrip('/')
             return os.path.basename(path)
 
