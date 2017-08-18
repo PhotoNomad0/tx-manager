@@ -28,14 +28,13 @@ class Linter(object):
         self.logger = logging.getLogger()
         self.log = LintLogger()
 
-        self.download_dir = tempfile.mkdtemp(prefix='download_')
-        self.source_dir = tempfile.mkdtemp(prefix='source_')
+        self.temp_dir = tempfile.mkdtemp(prefix='tmp_lint_')
+        self.source_dir = None  # Will be populated with the repo name
         self.source_zip_file = None  # If set, won't download the repo archive. Used for testing
 
     def close(self):
         """delete temp files"""
-        remove_tree(self.download_dir)
-        remove_tree(self.source_dir)
+        remove_tree(self.temp_dir)
 
     @abstractmethod
     def lint(self):
@@ -60,6 +59,7 @@ class Linter(object):
             self.logger.debug("Unzipping {0} to {1}".format(self.source_zip_file, self.source_dir))
             unzip(self.source_zip_file, self.source_dir)
             remove(self.source_zip_file)
+            self.source_dir = os.path.join(self.temp_dir, os.listdir(self.temp_dir)[0])
             # convert method called
             self.logger.debug("Linting files...")
             self.lint()
@@ -78,7 +78,7 @@ class Linter(object):
     def download_archive(self):
         archive_url = self.source
         filename = self.source.rpartition('/')[2]
-        self.source_zip_file = os.path.join(self.download_dir, filename)
+        self.source_zip_file = os.path.join(self.temp_dir, filename)
         if not os.path.isfile(self.source_zip_file):
             try:
                 download_file(archive_url, self.source_zip_file)
