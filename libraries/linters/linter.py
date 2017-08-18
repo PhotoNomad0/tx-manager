@@ -62,6 +62,7 @@ class Linter(object):
             remove(self.source_zip_file)
             # convert method called
             self.logger.debug("Linting files...")
+            self.lint()
             self.logger.debug(",,,finished.")
         except Exception as e:
             self.logger.error('Linting process ended abnormally: {0}'.format(e.message))
