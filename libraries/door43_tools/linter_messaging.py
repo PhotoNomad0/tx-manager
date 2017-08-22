@@ -1,7 +1,5 @@
 from __future__ import print_function, unicode_literals
-
 import json
-
 from libraries.door43_tools.messaging_service import MessagingService
 
 

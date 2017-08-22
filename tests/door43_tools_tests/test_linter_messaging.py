@@ -2,21 +2,31 @@
 from __future__ import absolute_import, unicode_literals, print_function
 import unittest
 import time
+import boto3
 from string import join
 from libraries.door43_tools.linter_messaging import LinterMessaging
+from moto import mock_sqs
 
 
+@mock_sqs
 class TestLinterMessaging(unittest.TestCase):
+    queue_name = "dummy-linter_complete"
 
     def setUp(self):
         """Runs before each test."""
+        try:
+            sqs = boto3.resource('sqs')
+            queue = sqs.create_queue(QueueName=TestLinterMessaging.queue_name, Attributes={'DelaySeconds': '5'})
+            print(queue is not None)
+        except Exception as e:
+            pass
 
     def tearDown(self):
         """Runs after each test."""
 
     def test_messagingLIFO(self):
         # given
-        q = LinterMessaging("test-linter_complete")
+        q = LinterMessaging(TestLinterMessaging.queue_name)
         files_to_lint = self.generate_file_list("http://door43.org/repos/9967", 10)
         files_to_lint2 = self.generate_file_list("http://door43.org/repos/1122", 15)
         q.clear_lint_jobs(files_to_lint + files_to_lint2, 2)
@@ -37,7 +47,7 @@ class TestLinterMessaging(unittest.TestCase):
 
     def test_messagingFIFO(self):
         # given
-        q = LinterMessaging("test-linter_complete")
+        q = LinterMessaging(TestLinterMessaging.queue_name)
         files_to_lint = self.generate_file_list("http://door43.org/repos/9967", 10)
         files_to_lint2 = self.generate_file_list("http://door43.org/repos/1122", 15)
         q.clear_lint_jobs(files_to_lint + files_to_lint2, 2)

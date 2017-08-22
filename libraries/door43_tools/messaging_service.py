@@ -1,9 +1,7 @@
 from __future__ import print_function, unicode_literals
-
 import json
 import time
-import boto.sqs
-from boto.sqs.message import Message
+import boto3
 
 
 class MessagingService(object):
@@ -11,15 +9,13 @@ class MessagingService(object):
     def __init__(self, queue_name, region="us-west-2"):
         self.queue_name = queue_name
         self.region = region
-        self.connection = None
         self.queue = None
         self.recvd_payloads = None
 
     def get_connection(self):
-        if not self.connection:
-            self.connection = boto.sqs.connect_to_region(self.region)
         if not self.queue:
-            self.queue = self.connection.get_queue(self.queue_name)
+            sqs = boto3.resource('sqs')
+            self.queue = sqs.get_queue_by_name(QueueName=self.queue_name)
         return self.queue
 
     def send_message(self, item_key, success, payload=None):
@@ -37,10 +33,8 @@ class MessagingService(object):
                 for k in payload:
                     data[k] = payload[k]
 
-        m = Message()
         data_json = json.dumps(data, encoding="UTF-8")
-        m.set_body(data_json)
-        self.queue.write(m)
+        self.queue.send_message(MessageBody=data_json)
         return True
 
     def clear_old_messages(self, items_to_look_for, timeout=5):
@@ -53,17 +47,14 @@ class MessagingService(object):
         start = time.time()
         self.recvd_payloads = {}
         while (len(self.recvd_payloads) < len(items_to_watch_for)) and (int(time.time() - start) < timeout):
-            rs = self.queue.get_messages(10, visibility_timeout=visibility_timeout)
-            for m in rs:
-                # print(m)
-                message_body = m.get_body()
-                if message_body:
-                    recvd = json.loads(message_body, encoding="UTF-8")
+            for message in self.queue.receive_messages(MaxNumberOfMessages=10, VisibilityTimeout=visibility_timeout):
+                if message.body:
+                    recvd = json.loads(message.body, encoding="UTF-8")
                     if 'key' in recvd:
                         item_key = recvd['key']
                         if item_key in items_to_watch_for:  # if this matches what we were looking for, then remove it
-                                                           # from queue
-                            self.queue.delete_message(m)
+                                                            # from queue
+                            message.delete()
                             self.recvd_payloads[item_key] = recvd
         success = len(self.recvd_payloads) >= len(items_to_watch_for)
         return success
