@@ -19,10 +19,10 @@ class RunLinterHandler(Handler):
             data.update(event['body-json'])
         # Set required env_vars
         args = {
-            'prefix': self.retrieve(event['vars'], 'prefix', 'Environment Vars', required=False, default=''),
             'source': self.retrieve(data, 'source_url', 'payload'),
             'commit_data': self.retrieve(data, 'commit_data', 'payload', required=False),
             'rc': RC(manifest=self.retrieve(data, 'rc', 'payload', required=False)),
+            'prefix': self.retrieve(event['vars'], 'prefix', 'Environment Vars', required=False, default=''),
         }
         linter_class = LinterHandler(**args).get_linter_class()
         return linter_class(**args).run()

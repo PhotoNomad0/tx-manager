@@ -368,7 +368,7 @@ class Resource:
         elif 'obs' in self.rc.repo_name.lower():
             return 'obs'
         else:
-            return 'bible'
+            return None
 
     @property
     def title(self):
@@ -624,24 +624,27 @@ def manifest_from_repo_name(repo_name):
 
     parts = re.findall(r'[A-Za-z0-9]+', repo_name)
 
+    language_set = False;
     for i, part in enumerate(parts):
-        if part == 'en':
-            # Speeds things up for English repos
-            manifest['dublin_core']['language'] = {
-                'identifier': 'en',
-                'title': 'English',
-                'direction': 'ltr'
-            }
-            continue
-        else:
-            lang = TdLanguage.get_language(part)
-            if lang and 'language' not in manifest['dublin_core']:
+        if not language_set:
+            if part == 'en':
+                # Speeds things up for English repos
                 manifest['dublin_core']['language'] = {
-                    'identifier': lang.lc,
-                    'title': lang.ln,
-                    'direction': lang.ld
+                    'identifier': 'en',
+                    'title': 'English',
+                    'direction': 'ltr'
                 }
+                language_set = True
                 continue
+            else:
+                lang = TdLanguage.get_language(part)
+                if lang and 'language' not in manifest['dublin_core']:
+                    manifest['dublin_core']['language'] = {
+                        'identifier': lang.lc,
+                        'title': lang.ln,
+                        'direction': lang.ld
+                    }
+                    continue
 
         if part.lower() in resource_map:
             manifest['dublin_core']['identifier'] = part

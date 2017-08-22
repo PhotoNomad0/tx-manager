@@ -21,32 +21,32 @@ class MarkdownLinter(Linter):
         lint_function = '{0}tx_markdown_linter'.format(self.prefix)
         files = sorted(get_files(directory=self.source_dir, relative_paths=True, exclude=self.EXCLUDED_FILES,
                                  extensions=['.md']))
+        strings = {}
         for f in files:
             path = os.path.join(self.source_dir, f)
             text = read_file(path)
-            response = lambda_handler.invoke(lint_function, {
-                'options': {
-                        'strings': {
-                            f: text
-                        },
-                        'config': {
-                            'default': True,
-                            'no-hard-tabs': False,
-                            'whitespace': False,
-                            'line-length': False,
-                            'no-inline-html': False,
-                            'no-duplicate-header': False,
-                            'single-h1': False,
-                            'no-trailing-punctuation': False
-                        }
+            strings[f] = text
+        response = lambda_handler.invoke(lint_function, {
+            'options': {
+                'strings': strings,
+                'config': {
+                    'default': True,
+                    'no-hard-tabs': False,
+                    'whitespace': False,
+                    'line-length': False,
+                    'no-inline-html': False,
+                    'no-duplicate-header': False,
+                    'single-h1': False,
+                    'no-trailing-punctuation': False
                 }
-             })
-            if 'errorMessage' in response:
-                self.log.error(response['errorMessage'])
-            elif 'Payload' in response:
-                lint_data = json.loads(response['Payload'].read())
-                for lint in lint_data[f]:
-                    line = '{0}:{1}:{2}: {3} [{4}]'. \
-                        format(f, lint['lineNumber'], lint['ruleAlias'], lint['ruleDescription'],
-                               lint['ruleName'])
-                    self.log.warning(line)
+            }
+        })
+        if 'errorMessage' in response:
+            self.log.error(response['errorMessage'])
+        elif 'Payload' in response:
+            lint_data = json.loads(response['Payload'].read())
+            for f, lint in lint_data.iteritems():
+                line = '{0}:{1}:{2}: {3} [{4}]'. \
+                    format(f, lint['lineNumber'], lint['ruleAlias'], lint['ruleDescription'],
+                           lint['ruleName'])
+                self.log.warning(line)
