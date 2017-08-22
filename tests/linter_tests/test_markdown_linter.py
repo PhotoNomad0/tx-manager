@@ -86,7 +86,7 @@ class TestMarkdownLinter(unittest.TestCase):
                 "name": "en_ta"
             }
         }
-        linter = MarkdownLinter('some_url', rc=rc, commit_data=commit_data, prefix='test-')
+        linter = MarkdownLinter('some_url', rc=rc, commit_data=commit_data)
         linter.source_zip_file = os.path.join(self.resources_dir, 'markdown_linter', 'en_ta_intro.zip')
         results = linter.run()
         expected = {
