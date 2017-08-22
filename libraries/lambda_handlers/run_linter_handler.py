@@ -1,4 +1,6 @@
 from __future__ import unicode_literals, print_function
+
+from libraries.door43_tools.linter_messaging import LinterMessaging
 from libraries.lambda_handlers.handler import Handler
 from libraries.linters.linter_handler import LinterHandler
 from libraries.resource_container.ResourceContainer import RC
@@ -23,17 +25,12 @@ class RunLinterHandler(Handler):
             'commit_data': self.retrieve(data, 'commit_data', 'payload', required=False),
             'rc': RC(manifest=self.retrieve(data, 'rc', 'payload', required=False)),
             'prefix': self.retrieve(event['vars'], 'prefix', 'Environment Vars', required=False, default=''),
+            'messaging_name': self.retrieve(data, 'linter_messaging_name', 'payload', required=False, default=None),
+            'single_file': self.retrieve(data, 'single_file', 'payload', required=False, default=None)
         }
         linter_class = LinterHandler(**args).get_linter_class()
-        return linter_class(**args).run()
-        # source = self.retrieve(data, 'source_url', 'payload')
-        # resource = self.retrieve(data, 'resource_type', 'payload', required=False)
-        # file_type = self.retrieve(data, 'file_type', 'payload', required=False)
-        # job_id = self.retrieve(data, 'job_id', 'payload', required=False)
-        # messaging_name = self.retrieve(data, 'linter_messaging_name', 'payload', required=False)
-        # ret_value = TxManager(**env_vars).run_linter(source, resource, file_type, job_id)
-        # if messaging_name:
-        #     message_queue = LinterMessaging(messaging_name)
-        #     message_queue.notify_lint_job_complete(source, ret_value['success'], payload=ret_value)
-        #
-        # return ret_value
+        ret_value = linter_class(**args).run()
+        if args['messaging_name']:
+            message_queue = LinterMessaging(args['messaging_name'])
+            message_queue.notify_lint_job_complete(args['source'], ret_value['success'], payload=ret_value)
+        return ret_value

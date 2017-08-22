@@ -205,17 +205,12 @@ class ClientWebhook(object):
         book_count = len(books)
         last_job_id = 0
 
-        # clean out old messages
-        source_urls = []
-        for i in range(0, book_count):
-            book = books[i]
-            source_urls.append(self.build_multipart_source(file_key, book))
         linter_queue = LinterMessaging(self.linter_messaging_name)
-        linter_queue.clear_lint_jobs(source_urls, 2)
-
+        source_urls = self.clear_out_any_old_messages(linter_queue, book_count, books, file_key)
         linter_payload = {
             'linter_messaging_name': self.linter_messaging_name
         }
+
         for i in range(0, book_count):
             book = books[i]
             part_id = '{0}_of_{1}'.format(i, book_count)
@@ -224,15 +219,12 @@ class ClientWebhook(object):
 
             # Send job request to tx-manager
             source_url = self.build_multipart_source(file_key, book)
-            linter_payload['single_file'] = book
             identifier, job = self.send_job_request_to_tx_manager(commit_id, source_url, rc, repo_name, repo_owner,
                                                                   count=book_count, part=i, book=book)
 
             # Send lint request to tx-manager
-            lint_results = self.send_lint_request_to_run_linter(job, rc, source_url, extra_data=linter_payload, async=True)
-            # if lint_results['success']:
-            #     job.warnings += lint_results['warnings']
-            #     job.update({'warnings': job.warnings})
+            linter_payload['single_file'] = book
+            self.send_lint_request_to_run_linter(job, rc, source_url, extra_data=linter_payload, async=True)
 
             jobs.append(job)
             last_job_id = job.job_id
@@ -292,6 +284,14 @@ class ClientWebhook(object):
             raise Exception('; '.join(errors))
         else:
             return build_logs_json
+
+    def clear_out_any_old_messages(self, linter_queue, book_count, books, file_key):
+        source_urls = []
+        for i in range(0, book_count):
+            book = books[i]
+            source_urls.append(self.build_multipart_source(file_key, book))
+        linter_queue.clear_lint_jobs(source_urls, 2)
+        return source_urls
 
     def build_multipart_source(self, file_key, book):
         params = urllib.urlencode({'convert_only': book})
@@ -458,9 +458,9 @@ class ClientWebhook(object):
 
     def send_lint_request_to_run_linter(self, job, rc, commit_url, extra_data=None, async=False):
         payload = {
-            'job_id': job['job_id'],
-            'resource_type': job['resource_type'],
-            'file_type': job['input_format'],
+            'job_id': job.job_id,
+            'commit_data': self.commit_data,
+            'rc': rc.as_dict(),
         }
         if extra_data:
             for k in extra_data:
@@ -476,10 +476,10 @@ class ClientWebhook(object):
 
     def send_payload_to_run_linter(self, payload, tx_manager_lint_url, async=False):
         self.logger.debug('Making request to tX-Manager URL {0} with payload:'.format(tx_manager_lint_url))
+        self.logger.debug(payload)
         headers = {"content-type": "application/json"}
         if async:
             headers['InvocationType'] = 'Event'
-        self.logger.debug(payload)
         response = requests.post(tx_manager_lint_url, json=payload, headers=headers)
         self.logger.debug('finished.')
         if response.status_code == requests.codes.ok:
