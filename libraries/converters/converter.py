@@ -30,7 +30,8 @@ class Converter(object):
         self.cdn_bucket = cdn_bucket
         self.cdn_file = cdn_file
         self.options = options
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('converter')
+        self.logger.addHandler(logging.NullHandler())
 
         if not self.options:
             self.options = {}
@@ -70,7 +71,6 @@ class Converter(object):
             # unzip the input archive
             self.logger.debug("Unzipping {0} to {1}".format(self.input_zip_file, self.files_dir))
             unzip(self.input_zip_file, self.files_dir)
-            remove(self.input_zip_file)
             # convert method called
             self.logger.debug("Converting files...")
             if self.convert():

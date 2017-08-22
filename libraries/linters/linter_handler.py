@@ -10,28 +10,36 @@ from libraries.linters.tq_linter import TqLinter
 from libraries.linters.tw_linter import TwLinter
 from libraries.linters.markdown_linter import MarkdownLinter
 from libraries.resource_container.ResourceContainer import BIBLE_RESOURCE_TYPES
+from libraries.resource_container.ResourceContainer import RC
 
 
-class LinterGetter:
-    @staticmethod
-    def get_linter_class(resource=None, file_type=None):
-        if resource == 'obs':
+class LinterHandler:
+    
+    def __init__(self, rc, **kwargs):
+        """
+        :param RC rc:
+        :param dict **kwargs: so we can pass other arguments and not throw an exception
+        """
+        self.rc = rc
+
+    def get_linter_class(self):
+        if self.rc.resource.identifier == 'obs':
             return ObsLinter
-        elif resource == 'ta':
+        elif self.rc.resource.identifier == 'ta':
             return TaLinter
-        elif resource == 'tn':
+        elif self.rc.resource.identifier == 'tn':
             return TnLinter
-        elif resource == 'tq':
+        elif self.rc.resource.identifier == 'tq':
             return TqLinter
-        elif resource == 'tw':
+        elif self.rc.resource.identifier == 'tw':
             return TwLinter
-        elif resource == 'udb':
+        elif self.rc.resource.identifier == 'udb':
             return UdbLinter
-        elif resource == 'ulb':
+        elif self.rc.resource.identifier == 'ulb':
             return UlbLinter
-        elif resource in BIBLE_RESOURCE_TYPES or file_type == 'usfm':
+        elif self.rc.resource.identifier in BIBLE_RESOURCE_TYPES or self.rc.resource.file_ext == 'usfm':
             return UsfmLinter
-        elif file_type == 'md':
+        elif self.rc.resource.file_ext == 'md':
             return MarkdownLinter
         else:
             return MarkdownLinter

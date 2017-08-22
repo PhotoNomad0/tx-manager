@@ -15,13 +15,17 @@ from libraries.client.preprocessors import do_preprocess
 from libraries.aws_tools.s3_handler import S3Handler
 from libraries.models.manifest import TxManifest
 from libraries.aws_tools.dynamodb_handler import DynamoDBHandler
+from libraries.models.job import TxJob
+from libraries.aws_tools.lambda_handler import LambdaHandler
 
 
 class ClientWebhook(object):
     MANIFEST_TABLE_NAME = 'tx-manifest'
+    JOB_TABLE_NAME = 'tx-job'
 
     def __init__(self, commit_data=None, api_url=None, pre_convert_bucket=None, cdn_bucket=None,
-                 gogs_url=None, gogs_user_token=None, manifest_table_name=None, linter_messaging_name=None):
+                 gogs_url=None, gogs_user_token=None, manifest_table_name=None, job_table_name=None, prefix='',
+                 linter_messaging_name=None):
         """
         :param dict commit_data:
         :param string api_url:
@@ -37,6 +41,8 @@ class ClientWebhook(object):
         self.gogs_url = gogs_url
         self.gogs_user_token = gogs_user_token
         self.manifest_table_name = manifest_table_name
+        self.job_table_name = job_table_name
+        self.prefix = prefix
         self.linter_messaging_name = linter_messaging_name
         self.logger = logging.getLogger()
 
@@ -46,16 +52,31 @@ class ClientWebhook(object):
         else:
             self.source_url_base = None
 
+        self.run_linter_function = '{0}tx_run_linter'.format(self.prefix)
+
         self.cdn_handler = None
         self.preconvert_handler = None
+        self.manifest_db_handler = None
+        self.job_db_handler = None
+        self.lambda_handler = None
 
         if not self.manifest_table_name:
             self.manifest_table_name = ClientWebhook.MANIFEST_TABLE_NAME
-        self.manifest_db_handler = DynamoDBHandler(self.manifest_table_name)
+        if not self.job_table_name:
+            self.job_table_name = ClientWebhook.JOB_TABLE_NAME
 
         # move everything down one directory level for simple delete
         self.intermediate_dir = 'tx-manager'
         self.base_temp_dir = os.path.join(tempfile.gettempdir(), self.intermediate_dir)
+
+        self.setup_resources()
+
+    def setup_resources(self):
+        if self.manifest_table_name:
+            self.manifest_db_handler = DynamoDBHandler(self.manifest_table_name)
+        if self.job_table_name:
+            self.job_db_handler = DynamoDBHandler(self.job_table_name)
+        self.lambda_handler = LambdaHandler()
 
     def process_webhook(self):
         try:
@@ -144,9 +165,10 @@ class ClientWebhook(object):
             identifier, job = self.send_job_request_to_tx_manager(commit_id, file_key, rc, repo_name, repo_owner)
 
             # Send lint request to tx-manager - giving the git.door43.org URL
-            lint_results = self.send_lint_request_to_tx_manager(job, commit_url.replace('commit', 'archive') + '.zip')
+            lint_results = self.send_lint_request_to_run_linter(job, commit_url, rc)
             if lint_results['success']:
-                job['warnings'] += lint_results['warnings']
+                job.warnings += lint_results['warnings']
+                job.update({'warnings': job.warnings})
 
             s3_commit_key = 'u/{0}'.format(identifier)
             self.clear_commit_directory_in_cdn(s3_commit_key)
@@ -161,8 +183,8 @@ class ClientWebhook(object):
             # Upload build_log.json to S3:
             self.upload_build_log_to_s3(build_log_json, s3_commit_key)
             remove_tree(self.base_temp_dir)  # cleanup
-            if len(job['errors']) > 0:
-                raise Exception('; '.join(job['errors']))
+            if len(job.errors) > 0:
+                raise Exception('; '.join(job.errors))
             else:
                 return build_log_json
 
@@ -188,7 +210,6 @@ class ClientWebhook(object):
         for i in range(0, book_count):
             book = books[i]
             source_urls.append(self.build_multipart_source(file_key, book))
-
         linter_queue = LinterMessaging(self.linter_messaging_name)
         linter_queue.clear_lint_jobs(source_urls, 2)
 
@@ -207,10 +228,13 @@ class ClientWebhook(object):
                                                                   count=book_count, part=i, book=book)
 
             # Send lint request to tx-manager
-            self.send_lint_request_to_tx_manager(job, source_url, extra_data=linter_payload, async=True)
+            lint_results = self.send_lint_request_to_run_linter(job, rc, source_url, extra_data=linter_payload, async=True)
+            # if lint_results['success']:
+            #     job.warnings += lint_results['warnings']
+            #     job.update({'warnings': job.warnings})
 
             jobs.append(job)
-            last_job_id = job['job_id']
+            last_job_id = job.job_id
 
             build_log_json = self.create_build_log(commit_id, commit_message, commit_url, compare_url, job,
                                                    pusher_username, repo_name, repo_owner)
@@ -222,7 +246,7 @@ class ClientWebhook(object):
             # Upload build_log.json to S3:
             self.upload_build_log_to_s3(build_log_json, master_s3_commit_key, part + "/")
 
-            errors += job['errors']
+            errors += job.errors
             build_logs.append(build_log_json)
 
         # Download the project.json file for this repo (create it if doesn't exist) and update it
@@ -235,10 +259,13 @@ class ClientWebhook(object):
         build_logs_json['job_id'] = last_job_id
         build_logs_json['source'] = source_url
         errors = []
+        warnings = []
         for i in range(0, book_count):
             build_log = build_logs[i]
             errors += build_log['errors']
+            warnings+= build_log['warnings']
         build_logs_json['errors'] = errors
+        build_log_json['warnings'] = warnings
 
         # get linter results
         success = linter_queue.wait_for_lint_jobs(source_urls, 180)  # wait up to 3 minutes
@@ -286,7 +313,7 @@ class ClientWebhook(object):
 
     def create_build_log(self, commit_id, commit_message, commit_url, compare_url, job, pusher_username, repo_name,
                          repo_owner):
-        build_log_json = job
+        build_log_json = job.get_db_data()
         build_log_json['repo_name'] = repo_name
         build_log_json['repo_owner'] = repo_owner
         build_log_json['commit_id'] = commit_id
@@ -304,9 +331,9 @@ class ClientWebhook(object):
         project_json['repo_url'] = 'https://git.door43.org/{0}/{1}'.format(repo_owner, repo_name)
         commit = {
             'id': commit_id,
-            'created_at': job['created_at'],
-            'status': job['status'],
-            'success': job['success'],
+            'created_at': job.created_at,
+            'status': job.status,
+            'success': job.success,
             'started_at': None,
             'ended_at': None
         }
@@ -382,9 +409,9 @@ class ClientWebhook(object):
         self.logger.debug(log_payload)
         response = requests.post(tx_manager_job_url, json=payload, headers=headers)
         self.logger.debug('finished.')
+
         # Fake job in case tx-manager returns an error, can still build the build_log.json
-        job = {
-            'job_id': None,
+        job = TxJob({
             'identifier': identifier,
             'resource_type': rc.resource.identifier,
             'input_format': rc.resource.file_ext,
@@ -398,11 +425,11 @@ class ClientWebhook(object):
             'log': [],
             'warnings': [],
             'errors': []
-        }
+        })
         if response.status_code != requests.codes.ok:
-            job['status'] = 'failed'
-            job['success'] = False
-            job['message'] = 'Failed to convert'
+            job.status = 'failed'
+            job.success = False
+            job.message = 'Failed to convert'
 
             if response.text:
                 # noinspection PyBroadException
@@ -413,51 +440,54 @@ class ClientWebhook(object):
                         if error.startswith('Bad Request: '):
                             error = error[len('Bad Request: '):]
 
-                        job['errors'].append(error)
+                        job.errors.append(error)
                 except:
                     pass
         else:
             json_data = json.loads(response.text)
 
             if 'job' not in json_data:
-                job['status'] = 'failed'
-                job['success'] = False
-                job['message'] = 'Failed to convert'
-                job['errors'].append('tX Manager did not return any info about the job request.')
+                job.status = 'failed'
+                job.success = False
+                job.message = 'Failed to convert'
+                job.errors.append('tX Manager did not return any info about the job request.')
             else:
-                job = json_data['job']
+                job.populate(json_data['job'])
         return identifier, job
 
-    def send_lint_request_to_tx_manager(self, job, repo_url, extra_data=None, async=False):
+    def send_lint_request_to_run_linter(self, job, rc, commit_url, extra_data=None, async=False):
         payload = {
-            'job_id': job['job_id'],
-            'resource_type': job['resource_type'],
-            'file_type': job['input_format'],
+            'data': {
+                'job_id': job.job_id,
+                'commit_data': self.commit_data,
+                'rc': rc.as_dict(),
+            },
+            'vars': {
+                'prefix': self.prefix,
+            }
         }
         if extra_data:
             for k in extra_data:
-                payload[k] = extra_data[k]
+                payload['data'][k] = extra_data[k]
 
-        tx_manager_lint_url = self.api_url + '/tx/lint'
-        if job['resource_type'] in BIBLE_RESOURCE_TYPES or job['resource_type'] == 'obs':
+        if job.resource_type in BIBLE_RESOURCE_TYPES or job.resource_type == 'obs':
             # Need to give the massaged source since it maybe was in chunks originally
-            payload['source_url'] = job['source']
+            payload['source_url'] = job.source
         else:
-            payload['source_url'] = repo_url
-        return self.add_payload_to_tx_linter(payload, tx_manager_lint_url, async=async)
+            payload['source_url'] = commit_url.replace('commit', 'archive') + '.zip'
+        return self.send_payload_to_run_linter(payload, async=async)
 
-    def add_payload_to_tx_linter(self, payload, tx_manager_lint_url, async=False):
-        self.logger.debug('Making request to tX-Manager URL {0} with payload:'.format(tx_manager_lint_url))
-        headers = {"content-type": "application/json"}
+    def send_payload_to_run_linter(self, payload, async=False):
+        self.logger.debug('Making request linter lambda with payload:')
+        self.logger.debug(payload)
         if async:
             headers['InvocationType'] = 'Event'
-        self.logger.debug(payload)
-        response = requests.post(tx_manager_lint_url, json=payload, headers=headers)
+        response = self.lambda_handler.invoke(function_name=self.run_linter_function, payload=payload)
         self.logger.debug('finished.')
-        if response.status_code == requests.codes.ok:
-            return json.loads(response.text)
+        if 'Payload' in response:
+            return json.loads(response['Payload'].read())
         else:
-            return {'success': False}
+            return {}
 
     def download_repo(self, commit_url, repo_dir):
         """
