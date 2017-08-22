@@ -41,10 +41,12 @@ class MarkdownLinter(Linter):
                 }
             }
         })
+        print(strings.keys())
         if 'errorMessage' in response:
             self.log.error(response['errorMessage'])
         elif 'Payload' in response:
             lint_data = json.loads(response['Payload'].read())
+            print(lint_data)
             for f in lint_data.keys():
                 data = lint_data['f']
                 line = '{0}:{1}:{2}: {3} [{4}]'. \
