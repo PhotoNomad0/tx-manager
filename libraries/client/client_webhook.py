@@ -224,6 +224,7 @@ class ClientWebhook(object):
 
             # Send job request to tx-manager
             source_url = self.build_multipart_source(file_key, book)
+            linter_payload['single_file'] = book
             identifier, job = self.send_job_request_to_tx_manager(commit_id, source_url, rc, repo_name, repo_owner,
                                                                   count=book_count, part=i, book=book)
 
