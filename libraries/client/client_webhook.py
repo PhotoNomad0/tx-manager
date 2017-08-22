@@ -458,37 +458,34 @@ class ClientWebhook(object):
 
     def send_lint_request_to_run_linter(self, job, rc, commit_url, extra_data=None, async=False):
         payload = {
-            'data': {
-                'job_id': job.job_id,
-                'commit_data': self.commit_data,
-                'rc': rc.as_dict(),
-            },
-            'vars': {
-                'prefix': self.prefix,
-            }
+            'job_id': job['job_id'],
+            'resource_type': job['resource_type'],
+            'file_type': job['input_format'],
         }
         if extra_data:
             for k in extra_data:
-                payload['data'][k] = extra_data[k]
+                payload[k] = extra_data[k]
 
+        tx_manager_lint_url = self.api_url + '/tx/lint'
         if job.resource_type in BIBLE_RESOURCE_TYPES or job.resource_type == 'obs':
             # Need to give the massaged source since it maybe was in chunks originally
             payload['source_url'] = job.source
         else:
             payload['source_url'] = commit_url.replace('commit', 'archive') + '.zip'
-        return self.send_payload_to_run_linter(payload, async=async)
+        return self.send_payload_to_run_linter(payload, tx_manager_lint_url, async=async)
 
-    def send_payload_to_run_linter(self, payload, async=False):
-        self.logger.debug('Making request linter lambda with payload:')
-        self.logger.debug(payload)
+    def send_payload_to_run_linter(self, payload, tx_manager_lint_url, async=False):
+        self.logger.debug('Making request to tX-Manager URL {0} with payload:'.format(tx_manager_lint_url))
+        headers = {"content-type": "application/json"}
         if async:
             headers['InvocationType'] = 'Event'
-        response = self.lambda_handler.invoke(function_name=self.run_linter_function, payload=payload)
+        self.logger.debug(payload)
+        response = requests.post(tx_manager_lint_url, json=payload, headers=headers)
         self.logger.debug('finished.')
-        if 'Payload' in response:
-            return json.loads(response['Payload'].read())
+        if response.status_code == requests.codes.ok:
+            return json.loads(response.text)
         else:
-            return {}
+            return {'success': False}
 
     def download_repo(self, commit_url, repo_dir):
         """
