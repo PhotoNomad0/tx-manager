@@ -400,23 +400,29 @@ class ClientWebhook(object):
                 job = json_data['job']
         return identifier, job
 
-    def send_lint_request_to_tx_manager(self, job, repo_url):
+    def send_lint_request_to_tx_manager(self, job, repo_url, extra_data=None, async=False):
         payload = {
             'job_id': job['job_id'],
             'resource_type': job['resource_type'],
             'file_type': job['input_format'],
         }
+        if extra_data:
+            for k in extra_data:
+                payload[k] = extra_data[k]
+
         tx_manager_lint_url = self.api_url + '/tx/lint'
         if job['resource_type'] in BIBLE_RESOURCE_TYPES or job['resource_type'] == 'obs':
             # Need to give the massaged source since it maybe was in chunks originally
             payload['source_url'] = job['source']
         else:
             payload['source_url'] = repo_url
-        return self.add_payload_to_tx_linter(payload, tx_manager_lint_url)
+        return self.add_payload_to_tx_linter(payload, tx_manager_lint_url, async=async)
 
-    def add_payload_to_tx_linter(self, payload, tx_manager_lint_url):
+    def add_payload_to_tx_linter(self, payload, tx_manager_lint_url, async=False):
         self.logger.debug('Making request to tX-Manager URL {0} with payload:'.format(tx_manager_lint_url))
         headers = {"content-type": "application/json"}
+        if async:
+            headers['InvocationType'] = 'Event'
         self.logger.debug(payload)
         response = requests.post(tx_manager_lint_url, json=payload, headers=headers)
         self.logger.debug('finished.')
