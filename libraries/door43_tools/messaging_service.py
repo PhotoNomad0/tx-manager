@@ -22,12 +22,12 @@ class MessagingService(object):
             self.queue = self.connection.get_queue(self.queue_name)
         return self.queue
 
-    def send_message(self, item_id, success, payload=None):
+    def send_message(self, item_key, success, payload=None):
         if not self.get_connection():
             return False
 
         data = {
-            'id': item_id,
+            'key': item_key,
             'success': success
         }
         if payload:
@@ -44,26 +44,26 @@ class MessagingService(object):
         return True
 
     def clear_old_messages(self, items_to_look_for, timeout=5):
-        return self.wait_for_messages(items_to_look_for, timeout)
+        self.wait_for_messages(items_to_look_for, timeout)
 
-    def wait_for_messages(self, items_to_watch_for, timeout=120):
+    def wait_for_messages(self, items_to_watch_for, timeout=120, visibility_timeout=5):
         if not self.get_connection():
             return False
 
         start = time.time()
         self.recvd_payloads = {}
         while (len(self.recvd_payloads) < len(items_to_watch_for)) and (int(time.time() - start) < timeout):
-            rs = self.queue.get_messages(visibility_timeout=5)
+            rs = self.queue.get_messages(10, visibility_timeout=visibility_timeout)
             for m in rs:
                 # print(m)
                 message_body = m.get_body()
                 if message_body:
                     recvd = json.loads(message_body, encoding="UTF-8")
-                    if 'id' in recvd:
-                        item_id = recvd['id']
-                        if item_id in items_to_watch_for:  # if this matches what we were looking for, then remove it
+                    if 'key' in recvd:
+                        item_key = recvd['key']
+                        if item_key in items_to_watch_for:  # if this matches what we were looking for, then remove it
                                                            # from queue
                             self.queue.delete_message(m)
-                            self.recvd_payloads[item_id] = recvd
+                            self.recvd_payloads[item_key] = recvd
         success = len(self.recvd_payloads) >= len(items_to_watch_for)
         return success

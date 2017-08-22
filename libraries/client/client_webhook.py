@@ -7,6 +7,7 @@ import requests
 import logging
 import json
 from datetime import datetime
+from libraries.door43_tools.linter_messaging import LinterMessaging
 from libraries.general_tools.file_utils import unzip, write_file, add_contents_to_zip, remove_tree
 from libraries.general_tools.url_utils import download_file
 from libraries.resource_container.ResourceContainer import RC, BIBLE_RESOURCE_TYPES
@@ -20,7 +21,7 @@ class ClientWebhook(object):
     MANIFEST_TABLE_NAME = 'tx-manifest'
 
     def __init__(self, commit_data=None, api_url=None, pre_convert_bucket=None, cdn_bucket=None,
-                 gogs_url=None, gogs_user_token=None, manifest_table_name=None):
+                 gogs_url=None, gogs_user_token=None, manifest_table_name=None, linter_messaging_name=None):
         """
         :param dict commit_data:
         :param string api_url:
@@ -36,6 +37,7 @@ class ClientWebhook(object):
         self.gogs_url = gogs_url
         self.gogs_user_token = gogs_user_token
         self.manifest_table_name = manifest_table_name
+        self.linter_messaging_name = linter_messaging_name
         self.logger = logging.getLogger()
 
         if self.pre_convert_bucket:
@@ -51,7 +53,7 @@ class ClientWebhook(object):
             self.manifest_table_name = ClientWebhook.MANIFEST_TABLE_NAME
         self.manifest_db_handler = DynamoDBHandler(self.manifest_table_name)
 
-        # move everything down one directory levek for simple delete
+        # move everything down one directory level for simple delete
         self.intermediate_dir = 'tx-manager'
         self.base_temp_dir = os.path.join(tempfile.gettempdir(), self.intermediate_dir)
 
@@ -180,11 +182,22 @@ class ClientWebhook(object):
 
         book_count = len(books)
         last_job_id = 0
+
+        # clean out old messages
+        source_urls = []
+        for i in range(0, book_count):
+            book = books[i]
+            source_urls.append(self.build_multipart_source(file_key, book))
+
+        linter_queue = LinterMessaging(self.linter_messaging_name)
+        linter_queue.clear_lint_jobs(source_urls, 2)
+
+        linter_payload = {
+            'linter_messaging_name': self.linter_messaging_name
+        }
         for i in range(0, book_count):
             book = books[i]
             part_id = '{0}_of_{1}'.format(i, book_count)
-
-            # 3) Zip up the massaged files for just the one book
 
             self.logger.debug('Adding job for {0} part {1}'.format(book, part_id))
 
@@ -194,9 +207,7 @@ class ClientWebhook(object):
                                                                   count=book_count, part=i, book=book)
 
             # Send lint request to tx-manager
-            lint_results = self.send_lint_request_to_tx_manager(job, source_url)
-            if lint_results['success']:
-                job['warnings'] += lint_results['warnings']
+            self.send_lint_request_to_tx_manager(job, source_url, extra_data=linter_payload, async=True)
 
             jobs.append(job)
             last_job_id = job['job_id']
@@ -228,6 +239,23 @@ class ClientWebhook(object):
             build_log = build_logs[i]
             errors += build_log['errors']
         build_logs_json['errors'] = errors
+
+        # get linter results
+        success = linter_queue.wait_for_lint_jobs(source_urls, 180)  # wait up to 3 minutes
+        if not success:
+            for source_url in linter_queue.get_unfinished_jobs():
+                build_logs_json['errors'].append("Linter didn't complete for file: " + source_url)
+        finished_lint_jobs = linter_queue.get_finished_jobs()
+        for k in finished_lint_jobs:
+            lint_data = linter_queue.get_job_data(k)
+            if not lint_data:
+                build_logs_json['errors'].append("Cannot read linter data for file: " + source_url)
+            else:
+                if ('success' not in lint_data) or not lint_data['success']:
+                    build_logs_json['errors'].append("Linter failed file: " + source_url)
+
+                if 'warnings' in lint_data:
+                    build_logs_json['warning'] += lint_data['warnings']
 
         # Upload build_log.json to S3:
         self.upload_build_log_to_s3(build_logs_json, master_s3_commit_key)
