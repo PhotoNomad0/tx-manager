@@ -31,13 +31,17 @@ class MarkdownLinter(Linter):
                 'strings': strings,
                 'config': {
                     'default': True,
-                    'no-hard-tabs': False,
-                    'whitespace': False,
-                    'line-length': False,
-                    'no-inline-html': False,
-                    'no-duplicate-header': False,
-                    'single-h1': False,
-                    'no-trailing-punctuation': False
+                    'no-hard-tabs': False,  # MD010
+                    'whitespace': False,  # MD009, MD010, MD012, MD027, MD028, MD030, MD037, MD038, MD039
+                    'line-length': False,  # MD013
+                    'no-inline-html': False,  # MD033
+                    'no-duplicate-header': False,  # MD024
+                    'single-h1': False,  # MD025
+                    'no-trailing-punctuation': False,  # MD026
+                    'no-emphasis-as-header': False,  # MD036
+                    'first-header-h1': False,  # MD002
+                    'first-line-h1': False,  # MD041
+                    'no-bare-urls': False,  # MD034
                 }
             }
         })
@@ -46,8 +50,11 @@ class MarkdownLinter(Linter):
         elif 'Payload' in response:
             lint_data = json.loads(response['Payload'].read())
             for f in lint_data.keys():
-                data = lint_data[f]
-                line = '{0}:{1}:{2}: {3} [{4}]'. \
-                    format(f, data['lineNumber'], data['ruleAlias'], data['ruleDescription'],
-                           data['ruleName'])
-                self.log.warning(line)
+                file_url = 'https://git.door43.org/{0}/{1}/src/master/{2}'.format(self.repo_owner, self.repo_name, f)
+                for item in lint_data[f]:
+                    error_context = ''
+                    if item['errorContext']:
+                        error_context = 'See '+item['errorContext']
+                    line = '<a href="{0}" target="_blank">{0}</a> - Line{1}: {2}. {3}'. \
+                        format(file_url, item['lineNumber'], item['ruleDescription'], error_context)
+                    self.log.warning(line)

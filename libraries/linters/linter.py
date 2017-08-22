@@ -35,6 +35,12 @@ class Linter(object):
         self.source_dir = None  # Will be populated with the repo name
         self.source_zip_file = None  # If set, won't download the repo archive. Used for testing
 
+        self.repo_owner = ''
+        self.repo_name = ''
+        if commit_data:
+            self.repo_name = self.commit_data['repository']['name']
+            self.repo_owner = self.commit_data['repository']['owner']['username']
+
     def close(self):
         """delete temp files"""
         remove_tree(self.temp_dir)
