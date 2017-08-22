@@ -45,8 +45,9 @@ class MarkdownLinter(Linter):
             self.log.error(response['errorMessage'])
         elif 'Payload' in response:
             lint_data = json.loads(response['Payload'].read())
-            for f, lint in lint_data.iteritems():
+            for f in lint_data.keys():
+                data = lint_data['f']
                 line = '{0}:{1}:{2}: {3} [{4}]'. \
-                    format(f, lint['lineNumber'], lint['ruleAlias'], lint['ruleDescription'],
-                           lint['ruleName'])
+                    format(f, data['lineNumber'], data['ruleAlias'], data['ruleDescription'],
+                           data['ruleName'])
                 self.log.warning(line)
